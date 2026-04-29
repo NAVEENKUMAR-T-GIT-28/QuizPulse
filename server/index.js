@@ -15,12 +15,17 @@ const { initQuizSocket } = require('./socket/quizSocket')
 const app    = express()
 const server = http.createServer(app)
 
+// Parse CLIENT_URL to allow multiple domains (comma-separated)
+const allowedOrigins = process.env.CLIENT_URL 
+  ? process.env.CLIENT_URL.split(',').map(url => url.trim())
+  : ['http://localhost:5173']
+
 // ─────────────────────────────────────────────
 // Socket.io setup
 // ─────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
-    origin:  process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
   },
 })
@@ -31,7 +36,7 @@ initQuizSocket(io)
 // Express middleware
 // ─────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: allowedOrigins,
 }))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))

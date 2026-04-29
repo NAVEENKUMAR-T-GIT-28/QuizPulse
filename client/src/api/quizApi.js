@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { getToken } from '../hooks/useAuth'
 
-const BASE = import.meta.env.VITE_SERVER_URL
+const BASE = import.meta.env.VITE_SERVER_URL || ''
 
 function authHeader() {
   return { Authorization: `Bearer ${getToken()}` }
