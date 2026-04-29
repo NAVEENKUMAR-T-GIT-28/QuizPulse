@@ -47,7 +47,10 @@ function applyScores(session, questionIndex, questionOpenedAt, timeLimit) {
  * Build a leaderboard array from a sorted players list.
  * Includes rank change compared to previous leaderboard snapshot.
  */
-function buildLeaderboard(sortedPlayers, previousLeaderboard = []) {
+function buildLeaderboard(players, previousLeaderboard = []) {
+  // Always ensure the array is sorted descending by score                                          
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score)
+
   return sortedPlayers.map((player, index) => {
     const prevRank = previousLeaderboard.findIndex(
       (p) => p.playerId === player.playerId
@@ -55,10 +58,10 @@ function buildLeaderboard(sortedPlayers, previousLeaderboard = []) {
     const rankChange = prevRank === -1 ? 0 : prevRank - index
 
     return {
-      rank:       index + 1,
-      playerId:   player.playerId,
-      name:       player.name,
-      score:      player.score,
+      rank: index + 1,
+      playerId: player.playerId,
+      name: player.name,
+      score: player.score,
       rankChange  // positive = moved up, negative = moved down
     }
   })
