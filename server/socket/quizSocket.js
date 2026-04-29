@@ -9,6 +9,7 @@ const { processReveal, buildLeaderboard, getVoteStats } = require('../services/q
 const liveVotes  = {}   // { "ROOMCODE:qIndex": [0, 0, 0, 0] }
 const roomHosts  = {}   // { "ROOMCODE": socketId }
 const roomTimers = {}   // { "ROOMCODE": timeoutRef }
+const roomIntervals = {} // { "ROOMCODE": intervalRef }
 
 function initQuizSocket(io) {
   io.on('connection', (socket) => {
@@ -346,18 +347,18 @@ function startQuestionTimer(io, code, session, quiz, timeLimit) {
   let remaining = timeLimit
 
   // Emit a tick every second
-  const tickInterval = setInterval(() => {
+  roomIntervals[code] = setInterval(() => {
     remaining--
     io.to(code).emit('timer:tick', { remaining })
 
     if (remaining <= 0) {
-      clearInterval(tickInterval)
+      clearInterval(roomIntervals[code])
     }
   }, 1000)
 
   // Auto-reveal when time is up
   roomTimers[code] = setTimeout(async () => {
-    clearInterval(tickInterval)
+    clearInterval(roomIntervals[code])
 
     try {
       // Reload session to get latest state
@@ -386,6 +387,10 @@ function clearQuestionTimer(code) {
   if (roomTimers[code]) {
     clearTimeout(roomTimers[code])
     delete roomTimers[code]
+  }
+  if (roomIntervals[code]) {
+    clearInterval(roomIntervals[code])
+    delete roomIntervals[code]
   }
 }
 
