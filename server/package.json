@@ -1,0 +1,25 @@
+{
+  "name": "quizlive-server",
+  "version": "1.0.0",
+  "description": "QuizLive backend — Express + Socket.io + MongoDB",
+  "main": "index.js",
+  "author": "Naveenkumar T",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "nanoid": "^3.3.7",
+    "puppeteer": "^21.6.1",
+    "socket.io": "^4.6.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
