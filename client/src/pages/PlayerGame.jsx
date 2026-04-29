@@ -24,14 +24,16 @@ export default function PlayerGame() {
 
   useEffect(() => {
     // Socket should already be connected from PlayerLobby
-    socket.on('quiz:question', (payload) => {
+    if (!socket.connected) socket.connect()
+
+    function onQuestion(payload) {
       setQuestion(payload)
       setStatus('live')
       setCorrectIndex(null)
       setAnswerConfirmed(false)
-    })
+    }
 
-    socket.on('quiz:result', ({ correctIndex: ci, leaderboard: lb }) => {
+    function onResult({ correctIndex: ci, leaderboard: lb }) {
       setCorrectIndex(ci)
       setLeaderboard(lb)
       setStatus('revealing')
@@ -40,30 +42,51 @@ export default function PlayerGame() {
       if (currentAnswer !== null) {
         setMyResult(currentAnswer === ci, currentAnswer === ci ? 1000 : 0)
       }
-    })
+    }
 
-    socket.on('timer:tick', ({ remaining }) => {
+    function onTick({ remaining }) {
       setTimer(remaining)
-    })
+    }
 
-    socket.on('answer:received', () => {
+    function onAnswerReceived() {
       setAnswerConfirmed(true)
-    })
+    }
 
-    socket.on('quiz:ended', ({ finalLeaderboard }) => {
+    function onEnded({ finalLeaderboard }) {
       setLeaderboard(finalLeaderboard || [])
       setStatus('ended')
-    })
+    }
+
+    function onReconnect() {
+      socket.emit('player:join', { roomCode, playerName: useQuizStore.getState().playerName, playerId: useQuizStore.getState().playerId })
+    }
+
+    // Remove stale listeners first
+    socket.off('quiz:question', onQuestion)
+    socket.off('quiz:result', onResult)
+    socket.off('timer:tick', onTick)
+    socket.off('answer:received', onAnswerReceived)
+    socket.off('quiz:ended', onEnded)
+    socket.off('connect', onReconnect)
+
+    // Register fresh listeners
+    socket.on('quiz:question', onQuestion)
+    socket.on('quiz:result', onResult)
+    socket.on('timer:tick', onTick)
+    socket.on('answer:received', onAnswerReceived)
+    socket.on('quiz:ended', onEnded)
+    socket.on('connect', onReconnect)
 
     return () => {
-      socket.off('quiz:question')
-      socket.off('quiz:result')
-      socket.off('timer:tick')
-      socket.off('answer:received')
-      socket.off('quiz:ended')
+      socket.off('quiz:question', onQuestion)
+      socket.off('quiz:result', onResult)
+      socket.off('timer:tick', onTick)
+      socket.off('answer:received', onAnswerReceived)
+      socket.off('quiz:ended', onEnded)
+      socket.off('connect', onReconnect)
       socket.disconnect()
     }
-  }, [])
+  }, [roomCode, setQuestion, setStatus, setCorrectIndex, setLeaderboard, setMyResult, setTimer])
 
   function handleAnswer(optionIndex) {
     if (myAnswer !== null) return

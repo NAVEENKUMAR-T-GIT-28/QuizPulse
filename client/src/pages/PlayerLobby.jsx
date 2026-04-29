@@ -10,7 +10,33 @@ export default function PlayerLobby() {
   const [quizTitle, setQuizTitle] = useState('')
 
   useEffect(() => {
-    socket.connect()
+    if (!socket.connected) socket.connect()
+
+    function onPlayerJoined({ quizTitle: title, status }) {
+      setQuizTitle(title || '')
+      if (status === 'live') navigate(`/play/${roomCode}`)
+    }
+
+    function onQuizQuestion(payload) {
+      setQuestion(payload)
+      setStatus('live')
+      navigate(`/play/${roomCode}`)
+    }
+
+    function onError({ message }) {
+      alert(message)
+      navigate('/join')
+    }
+
+    // Remove stale listeners first
+    socket.off('player:joined', onPlayerJoined)
+    socket.off('quiz:question', onQuizQuestion)
+    socket.off('error', onError)
+
+    // Register fresh listeners
+    socket.on('player:joined', onPlayerJoined)
+    socket.on('quiz:question', onQuizQuestion)
+    socket.on('error', onError)
 
     // Register with the server
     socket.emit('player:join', {
@@ -19,31 +45,13 @@ export default function PlayerLobby() {
       playerId,
     })
 
-    socket.on('player:joined', ({ quizTitle: title, status }) => {
-      setQuizTitle(title || '')
-      // If quiz is already live, navigate directly to game
-      if (status === 'live') navigate(`/play/${roomCode}`)
-    })
-
-    // When host starts the quiz, this fires for all players
-    socket.on('quiz:question', (payload) => {
-      setQuestion(payload)
-      setStatus('live')
-      navigate(`/play/${roomCode}`)
-    })
-
-    socket.on('error', ({ message }) => {
-      alert(message)
-      navigate('/join')
-    })
-
     return () => {
-      socket.off('player:joined')
-      socket.off('quiz:question')
-      socket.off('error')
+      socket.off('player:joined', onPlayerJoined)
+      socket.off('quiz:question', onQuizQuestion)
+      socket.off('error', onError)
       // Do NOT disconnect — socket needed in PlayerGame
     }
-  }, [])
+  }, [roomCode])
 
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>

@@ -37,13 +37,23 @@ export default function HostLobby() {
       setPlayers(players || [])
     }
 
+    // When the server broadcasts the first question after quiz:start,
+    // store it and navigate to HostLive
+    function onQuizQuestion(payload) {
+      useQuizStore.getState().setQuestion(payload)
+      useQuizStore.getState().setStatus('live')
+      navigate(`/host/${roomCode}`)
+    }
+
     // Remove any stale listeners first
     socket.off('host:joined', onHostJoined)
     socket.off('room:players', onRoomPlayers)
+    socket.off('quiz:question', onQuizQuestion)
 
     // Register fresh listeners
     socket.on('host:joined', onHostJoined)
     socket.on('room:players', onRoomPlayers)
+    socket.on('quiz:question', onQuizQuestion)
 
     // Emit join — always emit to re-register with server on reconnect
     socket.emit('host:join', { roomCode })
@@ -57,14 +67,15 @@ export default function HostLobby() {
     return () => {
       socket.off('host:joined', onHostJoined)
       socket.off('room:players', onRoomPlayers)
+      socket.off('quiz:question', onQuizQuestion)
       socket.off('connect', onReconnect)
       // Do NOT disconnect here — socket is needed in HostLive
     }
-  }, [roomCode, setPlayers])
+  }, [roomCode, setPlayers, navigate])
 
   function handleStart() {
     socket.emit('quiz:start', { roomCode })
-    navigate(`/host/${roomCode}`)
+    // Navigation happens when server broadcasts quiz:question (handled in useEffect)
   }
 
   function handleCopyLink() {
