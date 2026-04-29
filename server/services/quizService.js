@@ -1,4 +1,4 @@
-const BASE_POINTS = 1000
+const BASE_POINTS = 500
 const MAX_SPEED_BONUS = 500
 
 /**

@@ -32,12 +32,20 @@ function initQuizSocket(io) {
           return socket.emit('error', { message: 'This session has already ended' })
         }
 
-        // Prevent duplicate players (reconnect case)
-        const existing = session.players.find((p) => p.playerId === playerId)
-        if (!existing) {
-          session.players.push({ playerId, name: playerName.trim(), score: 0 })
-          await session.save()
+        // Prevent duplicate players (reconnect case) atomically
+        let updatedSession = await Session.findOneAndUpdate(
+          { roomCode: code, 'players.playerId': { $ne: playerId } },
+          { $push: { players: { playerId, name: playerName.trim(), score: 0 } } },
+          { new: true }
+        )
+
+        // If updatedSession is null, they were already in the array, so just fetch the session again
+        if (!updatedSession) {
+          updatedSession = await Session.findOne({ roomCode: code })
         }
+        
+        // We use updatedSession for the rest of the logic
+        session = updatedSession
 
         // Join the socket room
         socket.join(code)
