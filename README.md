@@ -1,4 +1,4 @@
-# QuizLive — Real-Time Quiz App (Mentimeter Clone)
+# QuizLive — Real-Time Quiz App
 > MERN Stack · Socket.io · JWT Auth for hosts · No auth for players · PDF export
 
 ---

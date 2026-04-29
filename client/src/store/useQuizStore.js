@@ -30,7 +30,7 @@ const useQuizStore = create((set) => ({
   // Actions
   setRoom:        (roomCode, sessionId) => set({ roomCode, sessionId }),
   setStatus:      (status) => set({ status }),
-  setQuestion:    (q) => set({ currentQuestion: q, currentIndex: q.index, myAnswer: null, isCorrect: null }),
+  setQuestion:    (q) => set({ currentQuestion: q, currentIndex: q.index, myAnswer: null, isCorrect: null, votes: new Array(q.options?.length || 4).fill(0) }),
   setVotes:       (votes) => set({ votes }),
   setLeaderboard: (leaderboard) => set({ leaderboard }),
   setPlayers:     (players) => set({ players }),

@@ -1,12 +1,12 @@
 {
-  "name": "quizlive-server",
+  "name": "quizpulse-server",
   "version": "1.0.0",
-  "description": "QuizLive backend — Express + Socket.io + MongoDB",
-  "main": "index.js",
+  "description": "QuizPulse backend",
+  "main": "server.js",
   "author": "Naveenkumar T",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
