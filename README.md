@@ -215,7 +215,8 @@ quizlive/
 │   │   │   ├── JoinPage.jsx         # Player room code entry
 │   │   │   ├── PlayerLobby.jsx      # Waiting for host to start
 │   │   │   ├── PlayerGame.jsx       # Question + answer buttons
-│   │   │   └── ResultsPage.jsx      # Final leaderboard (host + player)
+│   │   │   ├── ResultsPage.jsx      # Final leaderboard (host + player)
+│   │   │   └── HistoryPage.jsx      # Past session history for host
 │   │   ├── components/
 │   │   │   ├── LiveBarChart.jsx     # Recharts bar chart, updates via socket
 │   │   │   ├── Leaderboard.jsx      # Ranked player list
@@ -353,6 +354,7 @@ const SessionSchema = new mongoose.Schema({
 |---|---|---|---|
 | GET | `/api/session/:roomCode` | None | Validate room code exists (player join check) |
 | GET | `/api/session/history` | JWT | All past sessions for this host |
+| DELETE | `/api/session/:sessionId` | JWT | Delete a session |
 
 ### Export route — `/api/export`
 
@@ -654,6 +656,7 @@ Last page — Final Leaderboard
   <Route path="/quiz/new"       element={<ProtectedRoute><QuizBuilder /></ProtectedRoute>} />
   <Route path="/quiz/:id/edit"  element={<ProtectedRoute><QuizBuilder /></ProtectedRoute>} />
   <Route path="/host/:roomCode" element={<ProtectedRoute><HostLive /></ProtectedRoute>} />
+  <Route path="/history"        element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
   <Route path="/join"           element={<JoinPage />} />
   <Route path="/join/:code"     element={<JoinPage />} />
   <Route path="/play/:roomCode" element={<PlayerGame />} />
