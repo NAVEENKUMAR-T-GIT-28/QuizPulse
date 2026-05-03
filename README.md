@@ -520,7 +520,7 @@ socket.on('player:answer', ({ roomCode, questionIndex, optionIndex, playerId }) 
 
 ```js
 // services/quizService.js
-const BASE_POINTS = 1000
+const BASE_POINTS = 500
 const MAX_SPEED_BONUS = 500
 
 function calculatePoints(isCorrect, answeredAt, questionOpenedAt, timeLimit) {
