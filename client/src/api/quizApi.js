@@ -84,21 +84,64 @@ export async function getSessionResults(sessionId) {
 }
 
 // ─── Export ────────────────────────────────────────
+
+// Helper: trigger browser download for a blob
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a   = document.createElement('a')
+
+  a.href = url
+  a.download = filename
+
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+
+  URL.revokeObjectURL(url)
+}
+
+// Fallback PDF generation
+async function handlePdfFallback(sessionId, filename) {
+  const choice = window.confirm(
+    "High-quality PDF failed.\n\nOK → Generate simple PDF\nCancel → Retry"
+  )
+
+  if (choice) {
+    return downloadSimplePdf(sessionId, filename)
+  } else {
+    return exportSessionPdf(sessionId, filename) // retry
+  }
+}
+
+// export session PDF (high-quality)
 export async function exportSessionPdf(sessionId, filename = 'quiz-results.pdf') {
   const response = await fetch(`${BASE}/api/export/${sessionId}`, {
     headers: { Authorization: `Bearer ${getToken()}` }
   })
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}))
-    throw new Error(err.error || 'Failed to export PDF')
+
+  if (response.ok) {
+    const blob = await response.blob()
+    return downloadBlob(blob, filename)
   }
+
+  const err = await response.json().catch(() => ({}))
+  // SPECIAL CASE → fallback flow
+  if (err.error === 'pdf_quality_failed' && err.fallbackAvailable) {
+    return handlePdfFallback(sessionId, filename)
+  }
+  throw new Error(err.error || 'Failed to export PDF') // NORMAL ERROR
+}
+
+// export session PDF (simple & fast) 
+async function downloadSimplePdf(sessionId, filename) {
+  const response = await fetch(`${BASE}/api/export/${sessionId}/simple`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to generate simple PDF')
+  }
+
   const blob = await response.blob()
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, filename.replace('.pdf', '-simple.pdf'))
 }
