@@ -403,8 +403,8 @@ function initQuizSocket(io) {
         const code = roomCode?.toUpperCase()
         if (roomHosts[code] !== socket.id) return
 
-        roomEnded[code] = true
-        clearQuestionTimer(code)
+        roomEnded[code] = true      // set flag immediately
+        clearQuestionTimer(code)    // belt-and-suspenders (cleanupRoom will also clear)
 
         const session = await Session.findOne({ roomCode: code })
         if (!session) return
@@ -421,7 +421,7 @@ function initQuizSocket(io) {
         })
 
         // Cleanup in-memory stores
-        cleanupRoom(code, io)
+        cleanupRoom(io, code)
         console.log(`Session ended in room ${code}`)
       } catch (err) {
         console.error('quiz:end error:', err)
@@ -515,20 +515,43 @@ function clearQuestionTimer(code) {
   }
 }
 
-function cleanupRoom(code, io) {
-  roomEnded[code] = true  // block any in-flight interval callbacks
+function cleanupRoom(io, code) {
+  if (!code) return
+  try {
+    // 1. Set the flag first — blocks any in-flight interval/timeout callbacks
+    roomEnded[code] = true
 
-  Object.keys(liveVotes).forEach((key) => {
-    if (key.startsWith(`${code}:`)) delete liveVotes[key]
-  })
+    // 2. Explicitly clear timers here (don't rely on external callers)
+    clearInterval(roomIntervals[code])
+    clearTimeout(roomTimers[code])
+    delete roomIntervals[code]
+    delete roomTimers[code]
 
-  delete roomHosts[code]
-  delete roomEnded[code]  // final cleanup
+    // 3. Clear all liveVotes keys for this room
+    Object.keys(liveVotes).forEach((key) => {
+      if (key.startsWith(`${code}:`)) delete liveVotes[key]
+    })
 
-  Object.keys(lastAnswerTime).forEach((socketId) => {
-    const sock = io.sockets?.sockets?.get(socketId)
-    if (sock?.data?.roomCode === code) delete lastAnswerTime[socketId]
-  })
+    // 4. Remove host mapping
+    delete roomHosts[code]
+
+    // 5. Efficient socket cleanup — only iterates sockets in THIS room, not all sockets globally
+    const room = io.sockets.adapter.rooms.get(code)
+    if (room) {
+      room.forEach((socketId) => {
+        delete lastAnswerTime[socketId]
+      })
+    }
+
+    // 6. Keep roomEnded[code] = true intentionally
+    // Deleting it immediately risks a race condition if an async callback
+    // hasn't resolved yet. Memory cost is negligible (one string key per ended room).
+    // If you prefer a hard delete, use a short delay:
+    // setTimeout(() => delete roomEnded[code], 5000)
+
+  } catch (err) {
+    console.error('cleanupRoom error:', err)
+  }
 }
 
 module.exports = { initQuizSocket }
