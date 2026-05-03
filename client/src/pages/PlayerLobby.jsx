@@ -6,12 +6,22 @@ import useQuizStore from '../store/useQuizStore'
 export default function PlayerLobby() {
   const { roomCode } = useParams()
   const navigate = useNavigate()
-  const { playerId: storedPlayerId, playerName: storedPlayerName, setQuestion, setStatus } = useQuizStore()
+  const { playerId: storedPlayerId, playerName: storedPlayerName, setQuestion, setStatus, resetSession } = useQuizStore()
 
   // Fallback to sessionStorage if Zustand store was wiped by a browser refresh
   const playerId   = storedPlayerId   || sessionStorage.getItem('qp_playerId')
   const playerName = storedPlayerName || sessionStorage.getItem('qp_playerName')
   const [quizTitle, setQuizTitle] = useState('')
+  const [showCanceledModal, setShowCanceledModal] = useState(false)
+
+  function handleExit() {
+    socket.emit('player:leave', { roomCode, playerId })
+    socket.disconnect()
+    sessionStorage.removeItem('qp_roomCode')
+    sessionStorage.removeItem('qp_playerId')
+    resetSession()
+    navigate('/join')
+  }
 
   useEffect(() => {
     function doJoin() {
@@ -38,15 +48,25 @@ export default function PlayerLobby() {
       navigate('/join')
     }
 
+    function onSessionCanceled() {
+      setShowCanceledModal(true)
+      socket.disconnect()
+      sessionStorage.removeItem('qp_roomCode')
+      sessionStorage.removeItem('qp_playerId')
+      resetSession()
+    }
+
     // Remove stale listeners first
     socket.off('player:joined', onPlayerJoined)
     socket.off('quiz:question', onQuizQuestion)
     socket.off('error', onError)
+    socket.off('session_canceled', onSessionCanceled)
 
     // Register fresh listeners
     socket.on('player:joined', onPlayerJoined)
     socket.on('quiz:question', onQuizQuestion)
     socket.on('error', onError)
+    socket.on('session_canceled', onSessionCanceled)
 
     // Emit player:join only once the socket is confirmed connected
     // (socket.connect() is async — emitting immediately is not safe)
@@ -61,6 +81,7 @@ export default function PlayerLobby() {
       socket.off('player:joined', onPlayerJoined)
       socket.off('quiz:question', onQuizQuestion)
       socket.off('error', onError)
+      socket.off('session_canceled', onSessionCanceled)
       socket.off('connect', doJoin)   // remove one-time listener on cleanup
       // Do NOT disconnect — socket needed in PlayerGame
     }
@@ -113,7 +134,7 @@ export default function PlayerLobby() {
         </div>
 
         {/* Player info */}
-        <div className="glass" style={{ borderRadius: 'var(--r2)', padding: '16px 24px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+        <div className="glass" style={{ borderRadius: 'var(--r2)', padding: '16px 24px', display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
           <div
             className="lb-av"
             style={{ background: 'rgba(99,102,241,.15)', color: 'var(--indigo-l)', width: 36, height: 36, fontSize: 13 }}
@@ -129,7 +150,38 @@ export default function PlayerLobby() {
             </div>
           </div>
         </div>
+
+        {/* Exit Button */}
+        <div>
+          <button
+            onClick={handleExit}
+            className="btn btn-outline"
+            style={{ padding: '8px 24px', fontSize: 14, color: 'var(--text3)', borderColor: 'var(--border)' }}
+          >
+            Exit Quiz
+          </button>
+        </div>
       </div>
+
+      {/* Canceled Modal */}
+      {showCanceledModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass fade-up" style={{ maxWidth: 400, width: '90%', padding: '32px 24px', textAlign: 'center', borderRadius: 'var(--r2)' }}>
+            <div style={{ marginBottom: 16 }}>
+              <span className="mat xl" style={{ color: 'var(--amber)', fontSize: 48 }}>info</span>
+            </div>
+            <h2 style={{ fontSize: 20, marginBottom: 12 }}>Session Canceled</h2>
+            <p style={{ color: 'var(--text2)', marginBottom: 24, fontSize: 14 }}>
+              The host has canceled this quiz session. You will be redirected to the join screen.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button className="btn btn-primary" onClick={() => navigate('/join')}>
+                Okay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

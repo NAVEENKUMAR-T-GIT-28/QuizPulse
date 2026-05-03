@@ -137,6 +137,37 @@ function initQuizSocket(io) {
     })
 
     // ─────────────────────────────────────────────
+    // PLAYER: Leave a room explicitly
+    // ─────────────────────────────────────────────
+    socket.on('player:leave', async ({ roomCode, playerId }) => {
+      try {
+        if (!roomCode || !playerId) return
+        const code = roomCode.toUpperCase().trim()
+        
+        // Remove player from session
+        const session = await Session.findOneAndUpdate(
+          { roomCode: code },
+          { $pull: { players: { playerId } } },
+          { new: true }
+        )
+
+        if (session) {
+          console.log(`Player left room ${code}`)
+          // Update host with new player list
+          const hostSocketId = roomHosts[code]
+          if (hostSocketId) {
+            io.to(hostSocketId).emit('room:players', {
+              count:   session.players.length,
+              players: session.players.map((p) => ({ name: p.name, id: p.playerId })),
+            })
+          }
+        }
+      } catch (err) {
+        console.error('player:leave error:', err)
+      }
+    })
+
+    // ─────────────────────────────────────────────
     // HOST: Join their own session room
     // ─────────────────────────────────────────────
     socket.on('host:join', async ({ roomCode }) => {
@@ -426,6 +457,22 @@ function initQuizSocket(io) {
         console.log(`Session ended in room ${code}`)
       } catch (err) {
         console.error('quiz:end error:', err)
+      }
+    })
+
+    // ─────────────────────────────────────────────
+    // HOST: Cancel the session entirely
+    // ─────────────────────────────────────────────
+    socket.on('host:cancel', ({ roomCode }) => {
+      try {
+        const code = roomCode?.toUpperCase()
+        if (roomHosts[code] !== socket.id) return
+
+        io.to(code).emit('session_canceled')
+        cleanupRoom(io, code)
+        console.log(`Session canceled in room ${code}`)
+      } catch (err) {
+        console.error('host:cancel error:', err)
       }
     })
 

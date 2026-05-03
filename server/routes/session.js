@@ -159,7 +159,7 @@ router.get('/:roomCode/verify-host', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'You do not own this session' })
     }
 
-    res.json({ ok: true, status: session.status })
+    res.json({ ok: true, status: session.status, sessionId: session._id })
   } catch (err) {
     res.status(500).json({ error: 'Server error' })
   }

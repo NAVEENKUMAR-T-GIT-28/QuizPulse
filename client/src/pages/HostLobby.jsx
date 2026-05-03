@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import socket from '../socket/socket'
 import useQuizStore from '../store/useQuizStore'
 import QRCodeDisplay from '../components/QRCodeDisplay'
-import { verifyHostSession } from '../api/quizApi'
+import { verifyHostSession, deleteSession } from '../api/quizApi'
 
 const AVATAR_COLORS = [
   { bg: 'rgba(99,102,241,.15)', color: 'var(--indigo-l)' },
@@ -24,11 +24,16 @@ export default function HostLobby() {
   const { players, setPlayers } = useQuizStore()
   const [authChecked, setAuthChecked] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sessionId, setSessionId] = useState(null)
+  const [showCancelModal, setShowCancelModal] = useState(false)
 
   // ── Step 1: verify ownership before doing anything else ──────────────────
   useEffect(() => {
     verifyHostSession(roomCode)
-      .then(() => setAuthChecked(true))
+      .then((data) => {
+        setAuthChecked(true)
+        setSessionId(data.sessionId)
+      })
       .catch((err) => {
         const status = err?.response?.status
         if (status === 403) {
@@ -100,7 +105,20 @@ export default function HostLobby() {
 
   function handleCopyLink() {
     const url = `${window.location.origin}/join/${roomCode}`
-    navigator.clipboard.writeText(url).catch(() => {})
+    navigator.clipboard.writeText(url).catch(() => { })
+  }
+
+  async function handleCancelSession() {
+    try {
+      if (sessionId) {
+        await deleteSession(sessionId)
+      }
+      socket.emit('host:cancel', { roomCode }) // Broadcast session cancel
+      socket.disconnect()
+      navigate('/dashboard')
+    } catch (err) {
+      alert('Failed to cancel session.')
+    }
   }
 
   // Don't render host UI until ownership is confirmed — prevents flash of content
@@ -161,7 +179,7 @@ export default function HostLobby() {
             </div>
           </div>
           <div style={{ marginTop: 'auto', paddingTop: 12 }}>
-            <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={() => { socket.disconnect(); navigate('/dashboard') }}>
+            <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={() => setShowCancelModal(true)}>
               <span className="mat sm">close</span>Cancel
             </button>
           </div>
@@ -237,10 +255,40 @@ export default function HostLobby() {
               >
                 <span className="mat sm">play_arrow</span>Start Quiz
               </button>
+              <button
+                className="btn btn-danger btn-outline btn-lg"
+                style={{ width: '100%' }}
+                onClick={() => setShowCancelModal(true)}
+              >
+                <span className="mat sm">close</span>Cancel Quiz
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Cancel Modal */}
+      {showCancelModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass fade-up" style={{ maxWidth: 400, width: '90%', padding: '32px 24px', textAlign: 'center', borderRadius: 'var(--r2)' }}>
+            <div style={{ marginBottom: 16 }}>
+              <span className="mat xl" style={{ color: 'var(--red)', fontSize: 48 }}>warning</span>
+            </div>
+            <h2 style={{ fontSize: 20, marginBottom: 12 }}>Cancel Quiz Session?</h2>
+            <p style={{ color: 'var(--text2)', marginBottom: 24, fontSize: 14 }}>
+              Are you sure you want to cancel this session? This will permanently delete the room and disconnect all players.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button className="btn btn-ghost" onClick={() => setShowCancelModal(false)}>
+                No, keep it
+              </button>
+              <button className="btn btn-danger" onClick={handleCancelSession}>
+                Yes, cancel session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
