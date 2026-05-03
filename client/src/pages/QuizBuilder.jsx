@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getQuiz, createQuiz, updateQuiz } from '../api/quizApi'
+import { clearAuth, getUser } from '../hooks/useAuth'
 
 const LABELS = ['A', 'B', 'C', 'D']
 
@@ -21,6 +22,7 @@ const BLANK_QUESTION = () => ({ text: '', options: ['', '', '', ''], correctInde
 export default function QuizBuilder() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const user = getUser()
 
   const [title, setTitle]             = useState('')
   const [description, setDescription] = useState('')
@@ -31,6 +33,7 @@ export default function QuizBuilder() {
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState(null)
   const [fetchLoading, setFetchLoading] = useState(!!id)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Load existing quiz in edit mode
   useEffect(() => {
@@ -114,6 +117,11 @@ export default function QuizBuilder() {
     }
   }
 
+  function handleLogout() {
+    clearAuth()
+    navigate('/')
+  }
+
   if (fetchLoading) {
     return <div className="loading-center"><div className="spinner" /></div>
   }
@@ -124,15 +132,22 @@ export default function QuizBuilder() {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       {/* Topbar */}
       <div className="topbar">
-        <div className="topbar-logo">QuizPulse</div>
+        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
+          <span className="mat">menu</span>
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => navigate('/dashboard')}
+          style={{ padding: '6px 10px' }}
+        >
+          <span className="mat sm">arrow_back</span>
+          <span className="topbar-back-text">Dashboard</span>
+        </button>
         <div className="topbar-sep" />
         <span style={{ fontSize: 13, color: 'var(--text2)' }}>
-          Dashboard / <strong style={{ color: 'var(--text)' }}>{id ? 'Edit Quiz' : 'New Quiz'}</strong>
+          <strong style={{ color: 'var(--text)' }}>{id ? 'Edit Quiz' : 'New Quiz'}</strong>
         </span>
         <div className="topbar-right">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard')}>
-            <span className="mat sm">arrow_back</span>Back
-          </button>
           <button
             className="btn btn-primary btn-sm"
             onClick={handleSubmit}
@@ -144,9 +159,26 @@ export default function QuizBuilder() {
         </div>
       </div>
 
+      {/* Mobile sidebar overlay */}
+      <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
+
       <div className="host-layout">
         {/* Sidebar: question list */}
-        <div className="sidebar" style={{ width: 260, padding: '16px 10px' }}>
+        <div className={`sidebar qb-sidebar${sidebarOpen ? ' open' : ''}`} style={{ width: 260, padding: '16px 10px' }}>
+          {/* Mobile header */}
+          <div className="sidebar-mobile-header">
+            <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--indigo-l)' }}>QuizPulse</span>
+            <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
+              <span className="mat sm">close</span>
+            </button>
+          </div>
+
+          {/* Nav links */}
+          <button className="nav-item" onClick={() => { setSidebarOpen(false); navigate('/dashboard') }}>
+            <span className="mat sm">arrow_back</span>Dashboard
+          </button>
+          <div className="nav-sep" />
+
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text3)', marginBottom: 12, padding: '0 6px' }}>
             Questions ({questions.length})
           </div>
@@ -173,7 +205,7 @@ export default function QuizBuilder() {
                   border: idx === activeQ ? '2px solid rgba(99,102,241,.3)' : '2px solid transparent',
                   textTransform: 'none', letterSpacing: 0,
                 }}
-                onClick={() => setActiveQ(idx)}
+                onClick={() => { setActiveQ(idx); setSidebarOpen(false) }}
               >
                 <div style={{
                   width: 22, height: 22, borderRadius: 6,
@@ -202,6 +234,12 @@ export default function QuizBuilder() {
           >
             <span className="mat sm">add</span>Add question
           </button>
+
+          <div style={{ marginTop: 'auto', paddingTop: 12 }}>
+            <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={handleLogout}>
+              <span className="mat sm">logout</span>Sign out
+            </button>
+          </div>
         </div>
 
         {/* Editor */}
@@ -345,6 +383,7 @@ export default function QuizBuilder() {
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)',
+              flexWrap: 'wrap', gap: 12,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {timerMode === 'per-question' ? (

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getSessionResults, exportPdfUrl } from '../api/quizApi'
-import { getToken } from '../hooks/useAuth'
+import { getSessionResults, exportSessionPdf } from '../api/quizApi'
 import Leaderboard from '../components/Leaderboard'
 
 export default function ResultsPage() {
@@ -22,14 +21,9 @@ export default function ResultsPage() {
   async function handleExport() {
     setExporting(true)
     try {
-      const url = exportPdfUrl(sessionId)
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } })
-      const blob = await res.blob()
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `quiz-results-${sessionId}.pdf`
-      link.click()
-      URL.revokeObjectURL(link.href)
+      const quizTitle = results?.session?.quizTitle || 'results'
+      const filename = `quizpulse-${quizTitle.replace(/\s+/g, '-').toLowerCase()}-${sessionId.slice(-6)}.pdf`
+      await exportSessionPdf(sessionId, filename)
     } catch (err) {
       alert('Failed to export PDF')
     } finally {

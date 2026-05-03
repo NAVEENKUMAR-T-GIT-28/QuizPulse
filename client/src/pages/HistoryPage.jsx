@@ -19,6 +19,7 @@ export default function HistoryPage() {
   const [deleteTarget, setDeleteTarget] = useState(null)  // { sessionId, quizTitle }
   const [deleting, setDeleting]         = useState(false)
   const [exportingId, setExportingId]   = useState(null)
+  const [sidebarOpen, setSidebarOpen]   = useState(false)
 
   useEffect(() => {
     getSessionHistory()
@@ -119,6 +120,9 @@ export default function HistoryPage() {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       {/* Topbar */}
       <div className="topbar">
+        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
+          <span className="mat">menu</span>
+        </button>
         <div className="topbar-logo">QuizPulse</div>
         <div className="topbar-sep" />
         <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>Host Console</span>
@@ -137,13 +141,22 @@ export default function HistoryPage() {
         </div>
       </div>
 
+      {/* Mobile sidebar overlay */}
+      <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
+
       <div className="host-layout">
         {/* Sidebar */}
-        <div className="sidebar">
-          <button className="nav-item" onClick={() => navigate('/dashboard')}>
+        <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
+          <div className="sidebar-mobile-header">
+            <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--indigo-l)' }}>QuizPulse</span>
+            <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
+              <span className="mat sm">close</span>
+            </button>
+          </div>
+          <button className="nav-item" onClick={() => { setSidebarOpen(false); navigate('/dashboard') }}>
             <span className="mat sm">dashboard</span>Dashboard
           </button>
-          <button className="nav-item" onClick={() => navigate('/quiz/new')}>
+          <button className="nav-item" onClick={() => { setSidebarOpen(false); navigate('/quiz/new') }}>
             <span className="mat sm">add_circle</span>New Quiz
           </button>
           <button className="nav-item active">
@@ -254,7 +267,7 @@ export default function HistoryPage() {
                       }}
                       onClick={() => handleViewSession(session.sessionId)}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                      <div className="session-row-inner" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                         {/* Icon */}
                         <div style={{
                           width: 40, height: 40, borderRadius: 10,
@@ -287,29 +300,34 @@ export default function HistoryPage() {
                                 <span className="mat sm">timer</span>{fmtDuration(session.startedAt, session.endedAt)}
                               </span>
                             )}
+                            <span style={{ fontSize: 12, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span className="mat sm">people</span>{session.playerCount} players
+                            </span>
                           </div>
                         </div>
 
-                        {/* Player count */}
-                        <div style={{ textAlign: 'center', minWidth: 60 }}>
+                        {/* Player count — hidden on mobile via CSS */}
+                        <div className="session-player-count" style={{ textAlign: 'center', minWidth: 60 }}>
                           <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text)' }}>{session.playerCount}</div>
                           <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600 }}>PLAYERS</div>
                         </div>
 
-                        {/* Status badge */}
-                        <span style={{
-                          padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                          letterSpacing: .5, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`
-                        }}>
-                          {sc.label}
-                        </span>
+                        {/* Actions row */}
+                        <div className="session-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {/* Status badge */}
+                          <span style={{
+                            padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700,
+                            letterSpacing: .5, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`
+                          }}>
+                            {sc.label}
+                          </span>
 
-                        {/* Chevron */}
-                        <span className="mat sm" style={{ color: 'var(--text3)', transition: 'transform .2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                          expand_more
-                        </span>
+                          {/* Chevron */}
+                          <span className="mat sm" style={{ color: 'var(--text3)', transition: 'transform .2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                            expand_more
+                          </span>
 
-                        {/* Delete button */}
+                          {/* Delete button */}
                         <button
                           className="btn btn-danger btn-sm"
                           style={{ flexShrink: 0 }}
@@ -318,6 +336,7 @@ export default function HistoryPage() {
                         >
                           <span className="mat sm">delete</span>
                         </button>
+                        </div>
                       </div>
                     </div>
 

@@ -10,6 +10,7 @@ export default function HostDashboard() {
   const [loading, setLoading]   = useState(true)
   const [fetchError, setFetchError] = useState(null)
   const [launching, setLaunching] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   // Error message passed via navigation state (e.g. from unauthorized host redirect)
   const [redirectError, setRedirectError] = useState(location.state?.error || null)
   const user = getUser()
@@ -29,6 +30,7 @@ export default function HostDashboard() {
   }, [])
 
   function handleCreate() {
+    setSidebarOpen(false)
     navigate('/quiz/new')
   }
 
@@ -69,6 +71,9 @@ export default function HostDashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       {/* Topbar */}
       <div className="topbar">
+        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
+          <span className="mat">menu</span>
+        </button>
         <div className="topbar-logo">QuizPulse</div>
         <div className="topbar-sep" />
         <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>Host Console</span>
@@ -87,16 +92,25 @@ export default function HostDashboard() {
         </div>
       </div>
 
+      {/* Mobile sidebar overlay */}
+      <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
+
       <div className="host-layout">
         {/* Sidebar */}
-        <div className="sidebar">
+        <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
+          <div className="sidebar-mobile-header">
+            <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--indigo-l)' }}>QuizPulse</span>
+            <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
+              <span className="mat sm">close</span>
+            </button>
+          </div>
           <button className="nav-item active">
             <span className="mat sm">dashboard</span>Dashboard
           </button>
           <button className="nav-item" onClick={handleCreate}>
             <span className="mat sm">add_circle</span>New Quiz
           </button>
-          <button className="nav-item" onClick={() => navigate('/history')}>
+          <button className="nav-item" onClick={() => { setSidebarOpen(false); navigate('/history') }}>
             <span className="mat sm">history</span>History
           </button>
           <div style={{ marginTop: 'auto', paddingTop: 12 }}>

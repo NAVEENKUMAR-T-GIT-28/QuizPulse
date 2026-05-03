@@ -23,6 +23,7 @@ export default function HostLobby() {
   const navigate = useNavigate()
   const { players, setPlayers } = useQuizStore()
   const [authChecked, setAuthChecked] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // ── Step 1: verify ownership before doing anything else ──────────────────
   useEffect(() => {
@@ -109,6 +110,9 @@ export default function HostLobby() {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       {/* Topbar */}
       <div className="topbar">
+        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
+          <span className="mat">menu</span>
+        </button>
         <div className="topbar-logo">QuizPulse</div>
         <div className="topbar-sep" />
         <span style={{ fontSize: 13, color: 'var(--text2)' }}>Lobby</span>
@@ -120,22 +124,31 @@ export default function HostLobby() {
             Waiting
           </div>
           <button className="btn btn-ghost btn-sm" onClick={() => { socket.disconnect(); navigate('/dashboard') }}>
-            <span className="mat sm">arrow_back</span>Back
+            <span className="mat sm">arrow_back</span><span className="topbar-back-text">Back</span>
           </button>
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={handleStart}
             disabled={players.length === 0}
           >
-            <span className="mat sm">play_arrow</span>Start Quiz
+            <span className="mat sm">play_arrow</span><span className="topbar-back-text">Start Quiz</span>
           </button>
         </div>
       </div>
 
+      {/* Mobile sidebar overlay */}
+      <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
+
       <div className="host-layout">
         {/* Sidebar */}
-        <div className="sidebar">
-          <button className="nav-item active">
+        <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
+          <div className="sidebar-mobile-header">
+            <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--indigo-l)' }}>QuizPulse</span>
+            <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
+              <span className="mat sm">close</span>
+            </button>
+          </div>
+          <button className="nav-item active" onClick={() => setSidebarOpen(false)}>
             <span className="mat sm">sensor_door</span>Lobby
           </button>
           <div className="nav-sep" />
@@ -156,7 +169,7 @@ export default function HostLobby() {
 
         {/* Main */}
         <div className="main-content scroll-area">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, maxWidth: 960 }}>
+          <div className="lobby-grid">
             {/* Left: code + players */}
             <div>
               <div className="page-header">
