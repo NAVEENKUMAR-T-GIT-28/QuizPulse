@@ -170,19 +170,22 @@ function initQuizSocket(io) {
         const q = quiz.questions[0]
         liveVotes[`${code}:0`] = new Array(q.options.length).fill(0)
 
+        // Resolve effective time limit — quiz-wide or per-question
+        const timeLimit = quiz.timerMode === 'quiz' ? quiz.quizTimeLimit : q.timeLimit
+
         // Broadcast first question to players (no correctIndex!)
         const questionPayload = {
           index:          0,
           totalQuestions: quiz.questions.length,
           text:           q.text,
           options:        q.options,
-          timeLimit:      q.timeLimit,
+          timeLimit,
         }
 
         io.to(code).emit('quiz:question', questionPayload)
 
         // Start server-side countdown timer
-        startQuestionTimer(io, code, session, quiz, q.timeLimit)
+        startQuestionTimer(io, code, session, quiz, timeLimit)
 
         console.log(`Quiz started in room ${code}`)
       } catch (err) {
@@ -326,18 +329,21 @@ function initQuizSocket(io) {
         const q = quiz.questions[nextIndex]
         liveVotes[`${code}:${nextIndex}`] = new Array(q.options.length).fill(0)
 
+        // Resolve effective time limit — quiz-wide or per-question
+        const timeLimit = quiz.timerMode === 'quiz' ? quiz.quizTimeLimit : q.timeLimit
+
         const questionPayload = {
           index:          nextIndex,
           totalQuestions: quiz.questions.length,
           text:           q.text,
           options:        q.options,
-          timeLimit:      q.timeLimit,
+          timeLimit,
         }
 
         io.to(code).emit('quiz:question', questionPayload)
 
         // Restart timer for new question
-        startQuestionTimer(io, code, session, quiz, q.timeLimit)
+        startQuestionTimer(io, code, session, quiz, timeLimit)
 
         console.log(`Advanced to question ${nextIndex} in room ${code}`)
       } catch (err) {

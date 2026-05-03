@@ -35,7 +35,7 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/quiz — create quiz
 router.post('/', async (req, res) => {
-  const { title, description, questions } = req.body
+  const { title, description, questions, timerMode, quizTimeLimit } = req.body
 
   if (!title || !questions || !Array.isArray(questions) || questions.length === 0) {
     return res.status(400).json({ error: 'Title and at least one question are required' })
@@ -46,6 +46,8 @@ router.post('/', async (req, res) => {
       hostId: req.user.id,
       title,
       description: description || '',
+      timerMode: timerMode || 'per-question',
+      quizTimeLimit: quizTimeLimit || 10,
       questions
     })
     res.status(201).json({ quiz })
@@ -60,15 +62,17 @@ router.post('/', async (req, res) => {
 
 // PUT /api/quiz/:id — update quiz
 router.put('/:id', async (req, res) => {
-  const { title, description, questions } = req.body
+  const { title, description, questions, timerMode, quizTimeLimit } = req.body
 
   try {
     const quiz = await Quiz.findOne({ _id: req.params.id, hostId: req.user.id })
     if (!quiz) return res.status(404).json({ error: 'Quiz not found' })
 
-    if (title)       quiz.title = title
+    if (title)                     quiz.title = title
     if (description !== undefined) quiz.description = description
-    if (questions)   quiz.questions = questions
+    if (questions)                 quiz.questions = questions
+    if (timerMode)                 quiz.timerMode = timerMode
+    if (quizTimeLimit !== undefined) quiz.quizTimeLimit = quizTimeLimit
 
     await quiz.save()
     res.json({ quiz })

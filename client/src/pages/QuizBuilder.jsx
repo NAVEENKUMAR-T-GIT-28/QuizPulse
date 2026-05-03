@@ -4,15 +4,29 @@ import { getQuiz, createQuiz, updateQuiz } from '../api/quizApi'
 
 const LABELS = ['A', 'B', 'C', 'D']
 
+const TIME_OPTIONS = [
+  { value: 5,   label: '5 seconds' },
+  { value: 10,  label: '10 seconds' },
+  { value: 15,  label: '15 seconds' },
+  { value: 20,  label: '20 seconds' },
+  { value: 30,  label: '30 seconds' },
+  { value: 45,  label: '45 seconds' },
+  { value: 60,  label: '60 seconds' },
+  { value: 90,  label: '90 seconds' },
+  { value: 120, label: '120 seconds' },
+]
+
+const BLANK_QUESTION = () => ({ text: '', options: ['', '', '', ''], correctIndex: 0, timeLimit: 10 })
+
 export default function QuizBuilder() {
   const navigate = useNavigate()
   const { id } = useParams()
 
   const [title, setTitle]             = useState('')
   const [description, setDescription] = useState('')
-  const [questions, setQuestions]     = useState([
-    { text: '', options: ['', '', '', ''], correctIndex: 0, timeLimit: 30 }
-  ])
+  const [timerMode, setTimerMode]     = useState('per-question') // 'per-question' | 'quiz'
+  const [quizTimeLimit, setQuizTimeLimit] = useState(10)
+  const [questions, setQuestions]     = useState([BLANK_QUESTION()])
   const [activeQ, setActiveQ]         = useState(0)
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState(null)
@@ -23,13 +37,16 @@ export default function QuizBuilder() {
     if (!id) return
     getQuiz(id)
       .then(data => {
-        setTitle(data.quiz.title)
-        setDescription(data.quiz.description || '')
-        setQuestions(data.quiz.questions.map(q => ({
+        const quiz = data.quiz
+        setTitle(quiz.title)
+        setDescription(quiz.description || '')
+        setTimerMode(quiz.timerMode || 'per-question')
+        setQuizTimeLimit(quiz.quizTimeLimit || 10)
+        setQuestions(quiz.questions.map(q => ({
           text: q.text,
           options: [...q.options, ...Array(4 - q.options.length).fill('')].slice(0, 4),
           correctIndex: q.correctIndex,
-          timeLimit: q.timeLimit || 30,
+          timeLimit: q.timeLimit || 10,
         })))
       })
       .finally(() => setFetchLoading(false))
@@ -38,10 +55,7 @@ export default function QuizBuilder() {
   // Question management
   function addQuestion() {
     setQuestions(prev => {
-      const next = [...prev, { text: '', options: ['', '', '', ''], correctIndex: 0, timeLimit: 30 }]
-      // Use a timeout so the state update for setQuestions runs first,
-      // then setActiveQ is called with the correct new index.
-      // (Both setState calls are batched in React 18, so we read from `next` directly.)
+      const next = [...prev, BLANK_QUESTION()]
       setActiveQ(next.length - 1)
       return next
     })
@@ -80,6 +94,8 @@ export default function QuizBuilder() {
       const payload = {
         title,
         description,
+        timerMode,
+        quizTimeLimit,
         questions: questions.map(q => ({
           ...q,
           options: q.options.filter(o => o.trim() !== '')
@@ -193,18 +209,99 @@ export default function QuizBuilder() {
           <form onSubmit={handleSubmit} style={{ maxWidth: 640 }}>
             {error && <div className="error-msg">{error}</div>}
 
-            {/* Description (shown at top for first time) */}
+            {/* Description + Timer Mode (shown only on first question view) */}
             {activeQ === 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <div className="section-label">Quiz Description (optional)</div>
-                <textarea
-                  className="input textarea"
-                  placeholder="Brief description of your quiz..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  style={{ fontSize: 14 }}
-                />
-              </div>
+              <>
+                <div style={{ marginBottom: 24 }}>
+                  <div className="section-label">Quiz Description (optional)</div>
+                  <textarea
+                    className="input textarea"
+                    placeholder="Brief description of your quiz..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    style={{ fontSize: 14 }}
+                  />
+                </div>
+
+                {/* ── Timer Mode Toggle ── */}
+                <div style={{
+                  marginBottom: 28, padding: '16px 20px',
+                  background: 'rgba(99,102,241,.06)',
+                  border: '1px solid rgba(99,102,241,.15)',
+                  borderRadius: 'var(--r2)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <span className="mat sm" style={{ color: 'var(--indigo-l)' }}>timer</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Timer Mode</span>
+                  </div>
+
+                  {/* Toggle buttons */}
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                    <button
+                      type="button"
+                      onClick={() => setTimerMode('per-question')}
+                      style={{
+                        flex: 1, padding: '10px 0', borderRadius: 'var(--r)',
+                        border: timerMode === 'per-question'
+                          ? '2px solid var(--indigo)'
+                          : '2px solid var(--border2)',
+                        background: timerMode === 'per-question'
+                          ? 'rgba(99,102,241,.15)'
+                          : 'transparent',
+                        color: timerMode === 'per-question' ? 'var(--indigo-l)' : 'var(--text2)',
+                        fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                        transition: 'all .15s',
+                      }}
+                    >
+                      <span className="mat sm" style={{ display: 'block', marginBottom: 4 }}>tune</span>
+                      Per Question
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimerMode('quiz')}
+                      style={{
+                        flex: 1, padding: '10px 0', borderRadius: 'var(--r)',
+                        border: timerMode === 'quiz'
+                          ? '2px solid var(--indigo)'
+                          : '2px solid var(--border2)',
+                        background: timerMode === 'quiz'
+                          ? 'rgba(99,102,241,.15)'
+                          : 'transparent',
+                        color: timerMode === 'quiz' ? 'var(--indigo-l)' : 'var(--text2)',
+                        fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                        transition: 'all .15s',
+                      }}
+                    >
+                      <span className="mat sm" style={{ display: 'block', marginBottom: 4 }}>av_timer</span>
+                      Same for All
+                    </button>
+                  </div>
+
+                  {/* Description of selected mode */}
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: timerMode === 'quiz' ? 14 : 0 }}>
+                    {timerMode === 'per-question'
+                      ? 'Each question has its own timer. Set it individually below.'
+                      : 'One timer applies to every question in this quiz.'}
+                  </div>
+
+                  {/* Quiz-wide time limit — only shown in 'quiz' mode */}
+                  {timerMode === 'quiz' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>Time per question:</span>
+                      <select
+                        className="input"
+                        style={{ width: 140, padding: '8px 12px', fontSize: 13 }}
+                        value={quizTimeLimit}
+                        onChange={(e) => setQuizTimeLimit(Number(e.target.value))}
+                      >
+                        {TIME_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
             {/* Question text */}
@@ -244,29 +341,33 @@ export default function QuizBuilder() {
               </div>
             ))}
 
-            {/* Footer: time limit + actions */}
+            {/* Footer: per-question time limit (hidden in quiz-wide mode) + delete */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span className="mat sm" style={{ color: 'var(--text3)' }}>timer</span>
-                <span style={{ fontSize: 13, color: 'var(--text2)' }}>Time limit:</span>
-                <select
-                  className="input"
-                  style={{ width: 130, padding: '8px 12px', fontSize: 13 }}
-                  value={q.timeLimit}
-                  onChange={(e) => updateQuestion(activeQ, 'timeLimit', Number(e.target.value))}
-                >
-                  <option value={10}>10 seconds</option>
-                  <option value={15}>15 seconds</option>
-                  <option value={20}>20 seconds</option>
-                  <option value={30}>30 seconds</option>
-                  <option value={45}>45 seconds</option>
-                  <option value={60}>60 seconds</option>
-                  <option value={90}>90 seconds</option>
-                  <option value={120}>120 seconds</option>
-                </select>
+                {timerMode === 'per-question' ? (
+                  <>
+                    <span className="mat sm" style={{ color: 'var(--text3)' }}>timer</span>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Time limit:</span>
+                    <select
+                      className="input"
+                      style={{ width: 130, padding: '8px 12px', fontSize: 13 }}
+                      value={q.timeLimit}
+                      onChange={(e) => updateQuestion(activeQ, 'timeLimit', Number(e.target.value))}
+                    >
+                      {TIME_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <span style={{ fontSize: 13, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="mat sm">av_timer</span>
+                    Using quiz timer: <strong style={{ color: 'var(--indigo-l)', marginLeft: 4 }}>{quizTimeLimit}s</strong>
+                  </span>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button

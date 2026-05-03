@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import socket from '../socket/socket'
 import useQuizStore from '../store/useQuizStore'
@@ -22,7 +22,6 @@ export default function HostLobby() {
   const { roomCode } = useParams()
   const navigate = useNavigate()
   const { players, setPlayers } = useQuizStore()
-  const hasJoined = useRef(false)
   const [authChecked, setAuthChecked] = useState(false)
 
   // ── Step 1: verify ownership before doing anything else ──────────────────

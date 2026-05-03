@@ -22,7 +22,7 @@ const QuestionSchema = new mongoose.Schema({
   },
   timeLimit: {
     type: Number,
-    default: 30,
+    default: 10,
     min: 5,
     max: 120
   }
@@ -46,6 +46,20 @@ const QuizSchema = new mongoose.Schema({
     trim: true,
     maxlength: [300, 'Description cannot exceed 300 characters'],
     default: ''
+  },
+  // 'per-question' — each question uses its own timeLimit (default)
+  // 'quiz'         — all questions share a single quizTimeLimit value
+  timerMode: {
+    type: String,
+    enum: ['per-question', 'quiz'],
+    default: 'per-question'
+  },
+  // Used only when timerMode === 'quiz'
+  quizTimeLimit: {
+    type: Number,
+    default: 10,
+    min: 5,
+    max: 300
   },
   questions: {
     type: [QuestionSchema],
