@@ -8,7 +8,7 @@ const { processReveal, buildLeaderboard, getVoteStats } = require('../services/q
  * In-memory stores for the duration of a live session
  * These reset on server restart — that's fine, session data is in MongoDB
  */
-const liveVotes  = {}   // { "ROOMCODE:qIndex": [0, 0, 0, 0] }
+const liveVotes  = {}   // { "ROOMCODE": { qIndex: [0, 0, 0, 0] } }
 const roomHosts  = {}   // { "ROOMCODE": socketId }
 const roomTimers = {}   // { "ROOMCODE": timeoutRef }
 const roomIntervals = {} // { "ROOMCODE": intervalRef }
@@ -205,7 +205,7 @@ function initQuizSocket(io) {
 
         // Init vote tracker for question 0
         const q = quiz.questions[0]
-        liveVotes[`${code}:0`] = new Array(q.options.length).fill(0)
+        liveVotes[code] = { 0: new Array(q.options.length).fill(0) }
 
         // Resolve effective time limit — quiz-wide or per-question
         const timeLimit = quiz.timerMode === 'quiz' ? quiz.quizTimeLimit : q.timeLimit
@@ -286,16 +286,16 @@ function initQuizSocket(io) {
         if (!updated) return
 
         // Update in-memory vote counter
-        const key = `${code}:${questionIndex}`
-        if (!liveVotes[key]) liveVotes[key] = new Array(question.options.length).fill(0)
-        liveVotes[key][optionIndex]++
+        if (!liveVotes[code])                liveVotes[code] = {}
+        if (!liveVotes[code][questionIndex]) liveVotes[code][questionIndex] = new Array(question.options.length).fill(0)
+        liveVotes[code][questionIndex][optionIndex]++
 
-        // Send live stats to host only
         const hostSocketId = roomHosts[code]
         if (hostSocketId) {
+          const votes = liveVotes[code][questionIndex]
           io.to(hostSocketId).emit('quiz:stats', {
-            votes:         liveVotes[key],
-            totalAnswered: liveVotes[key].reduce((s, v) => s + v, 0),
+            votes,
+            totalAnswered: votes.reduce((s, v) => s + v, 0),
             totalPlayers:  updated.players.length,
           })
         }
@@ -371,7 +371,8 @@ function initQuizSocket(io) {
         await session.save()
 
         const q = quiz.questions[nextIndex]
-        liveVotes[`${code}:${nextIndex}`] = new Array(q.options.length).fill(0)
+        if (!liveVotes[code]) liveVotes[code] = {}
+        liveVotes[code][nextIndex] = new Array(q.options.length).fill(0)
 
         // Resolve effective time limit — quiz-wide or per-question
         const timeLimit = quiz.timerMode === 'quiz' ? quiz.quizTimeLimit : q.timeLimit
@@ -521,21 +522,19 @@ function cleanupRoom(io, code) {
     // 1. Set the flag first — blocks any in-flight interval/timeout callbacks
     roomEnded[code] = true
 
-    // 2. Explicitly clear timers here (don't rely on external callers)
-    clearInterval(roomIntervals[code])
-    clearTimeout(roomTimers[code])
+    // 2. Explicitly clear timers (guarded — safe if already cleared)
+    if (roomIntervals[code]) clearInterval(roomIntervals[code])
+    if (roomTimers[code])    clearTimeout(roomTimers[code])
     delete roomIntervals[code]
     delete roomTimers[code]
 
-    // 3. Clear all liveVotes keys for this room
-    Object.keys(liveVotes).forEach((key) => {
-      if (key.startsWith(`${code}:`)) delete liveVotes[key]
-    })
+    // 3. Clear all liveVotes for this room — O(1)
+    delete liveVotes[code]
 
     // 4. Remove host mapping
     delete roomHosts[code]
 
-    // 5. Efficient socket cleanup — only iterates sockets in THIS room, not all sockets globally
+    // 5. Efficient socket cleanup — room-only, not global scan
     const room = io.sockets.adapter.rooms.get(code)
     if (room) {
       room.forEach((socketId) => {
@@ -543,14 +542,11 @@ function cleanupRoom(io, code) {
       })
     }
 
-    // 6. Keep roomEnded[code] = true intentionally
-    // Deleting it immediately risks a race condition if an async callback
-    // hasn't resolved yet. Memory cost is negligible (one string key per ended room).
-    // If you prefer a hard delete, use a short delay:
-    // setTimeout(() => delete roomEnded[code], 5000)
+    // 6. Delayed delete of roomEnded flag — 5s window covers in-flight async callbacks
+    setTimeout(() => delete roomEnded[code], 5000)
 
   } catch (err) {
-    console.error('cleanupRoom error:', err)
+    console.error(`cleanupRoom error [room=${code}]:`, err)
   }
 }
 
