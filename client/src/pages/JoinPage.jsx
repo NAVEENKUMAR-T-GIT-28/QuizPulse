@@ -33,7 +33,12 @@ export default function JoinPage() {
       useQuizStore.getState().setPlayerName(playerName.trim())
       useQuizStore.getState().setRoom(data.roomCode, data.sessionId)
 
-      // 4. Navigate to player lobby
+      // 4. Persist to sessionStorage so lobby/game pages survive a browser refresh
+      sessionStorage.setItem('pq_playerName', playerName.trim())
+      sessionStorage.setItem('pq_playerId', playerId)
+      sessionStorage.setItem('pq_roomCode', data.roomCode)
+
+      // 5. Navigate to player lobby
       navigate(`/lobby/${data.roomCode}/wait`)
     } catch (err) {
       setError(err.response?.data?.error || 'Room not found')

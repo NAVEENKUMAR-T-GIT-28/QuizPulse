@@ -98,6 +98,7 @@ body {
 }
 .input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
 .input::placeholder { color: var(--text3); }
+.input option { background: var(--bg2); color: var(--text); }
 .textarea { resize: none; min-height: 80px; }
 
 /* ── BADGE ── */

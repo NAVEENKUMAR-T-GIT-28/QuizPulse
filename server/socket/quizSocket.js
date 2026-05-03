@@ -23,7 +23,7 @@ function initQuizSocket(io) {
         if (!roomCode || !playerName || !playerId) return
 
         const code = roomCode.toUpperCase().trim()
-        const session = await Session.findOne({ roomCode: code })
+        let session = await Session.findOne({ roomCode: code })
 
         if (!session) {
           return socket.emit('error', { message: 'Room not found' })

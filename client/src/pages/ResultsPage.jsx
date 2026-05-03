@@ -9,12 +9,13 @@ export default function ResultsPage() {
   const navigate = useNavigate()
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     getSessionResults(sessionId)
       .then(data => setResults(data))
-      .catch(() => {})
+      .catch(err => setError(err.response?.data?.error || 'Failed to load results'))
       .finally(() => setLoading(false))
   }, [sessionId])
 
@@ -45,7 +46,10 @@ export default function ResultsPage() {
       <div className="loading-center">
         <div style={{ textAlign: 'center' }}>
           <span className="mat xl" style={{ fontSize: 48, color: 'var(--text3)', display: 'block', marginBottom: 16 }}>error_outline</span>
-          <p style={{ color: 'var(--text2)', marginBottom: 20 }}>Results not found</p>
+          <p style={{ color: 'var(--text2)', marginBottom: 8 }}>Results not found</p>
+          {error && (
+            <p style={{ color: 'var(--red, #f87171)', fontSize: 13, marginBottom: 20 }}>{error}</p>
+          )}
           <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>
             Back to Dashboard
           </button>

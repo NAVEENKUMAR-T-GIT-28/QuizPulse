@@ -7,13 +7,21 @@ export default function HostDashboard() {
   const navigate = useNavigate()
   const [quizzes, setQuizzes]   = useState([])
   const [loading, setLoading]   = useState(true)
+  const [fetchError, setFetchError] = useState(null)
   const [launching, setLaunching] = useState(null)
   const user = getUser()
 
   useEffect(() => {
     getQuizzes()
       .then(data => setQuizzes(data.quizzes || []))
-      .catch(() => {})
+      .catch(err => {
+        if (err.response?.status === 401) {
+          // JWT expired — send user back to auth
+          navigate('/auth')
+        } else {
+          setFetchError(err.response?.data?.error || 'Failed to load quizzes')
+        }
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -131,6 +139,13 @@ export default function HostDashboard() {
 
           {loading ? (
             <div className="loading-center"><div className="spinner" /></div>
+          ) : fetchError ? (
+            <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>
+              <span className="mat xl" style={{ fontSize: 48, marginBottom: 16, display: 'block', opacity: 0.3 }}>error_outline</span>
+              <p style={{ fontSize: 16, marginBottom: 8 }}>Could not load quizzes</p>
+              <p style={{ fontSize: 13, color: 'var(--red, #f87171)', marginBottom: 20 }}>{fetchError}</p>
+              <button className="btn btn-ghost" onClick={() => window.location.reload()}>Retry</button>
+            </div>
           ) : quizzes.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>
               <span className="mat xl" style={{ fontSize: 48, marginBottom: 16, display: 'block', opacity: 0.3 }}>quiz</span>

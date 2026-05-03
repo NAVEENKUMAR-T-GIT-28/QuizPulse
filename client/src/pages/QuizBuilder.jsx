@@ -37,11 +37,14 @@ export default function QuizBuilder() {
 
   // Question management
   function addQuestion() {
-    setQuestions(prev => [
-      ...prev,
-      { text: '', options: ['', '', '', ''], correctIndex: 0, timeLimit: 30 }
-    ])
-    setActiveQ(questions.length)
+    setQuestions(prev => {
+      const next = [...prev, { text: '', options: ['', '', '', ''], correctIndex: 0, timeLimit: 30 }]
+      // Use a timeout so the state update for setQuestions runs first,
+      // then setActiveQ is called with the correct new index.
+      // (Both setState calls are batched in React 18, so we read from `next` directly.)
+      setActiveQ(next.length - 1)
+      return next
+    })
   }
 
   function removeQuestion(index) {

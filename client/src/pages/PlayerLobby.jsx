@@ -6,11 +6,17 @@ import useQuizStore from '../store/useQuizStore'
 export default function PlayerLobby() {
   const { roomCode } = useParams()
   const navigate = useNavigate()
-  const { playerId, playerName, setQuestion, setStatus } = useQuizStore()
+  const { playerId: storedPlayerId, playerName: storedPlayerName, setQuestion, setStatus } = useQuizStore()
+
+  // Fallback to sessionStorage if Zustand store was wiped by a browser refresh
+  const playerId   = storedPlayerId   || sessionStorage.getItem('pq_playerId')
+  const playerName = storedPlayerName || sessionStorage.getItem('pq_playerName')
   const [quizTitle, setQuizTitle] = useState('')
 
   useEffect(() => {
-    if (!socket.connected) socket.connect()
+    function doJoin() {
+      socket.emit('player:join', { roomCode, playerName, playerId })
+    }
 
     function onPlayerJoined({ quizTitle: title, status }) {
       setQuizTitle(title || '')
@@ -38,17 +44,20 @@ export default function PlayerLobby() {
     socket.on('quiz:question', onQuizQuestion)
     socket.on('error', onError)
 
-    // Register with the server
-    socket.emit('player:join', {
-      roomCode,
-      playerName,
-      playerId,
-    })
+    // Emit player:join only once the socket is confirmed connected
+    // (socket.connect() is async — emitting immediately is not safe)
+    if (socket.connected) {
+      doJoin()
+    } else {
+      socket.once('connect', doJoin)
+      socket.connect()
+    }
 
     return () => {
       socket.off('player:joined', onPlayerJoined)
       socket.off('quiz:question', onQuizQuestion)
       socket.off('error', onError)
+      socket.off('connect', doJoin)   // remove one-time listener on cleanup
       // Do NOT disconnect — socket needed in PlayerGame
     }
   }, [roomCode])
