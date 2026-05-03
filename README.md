@@ -202,21 +202,21 @@ Players get a `playerId` generated client-side using `crypto.randomUUID()` store
 
 ```
 quizpulse/
-├── client/                          # React frontend (deploy to Vercel)
+├── client/                          # React frontend
 │   ├── public/
 │   ├── src/
 │   │   ├── pages/
 │   │   │   ├── LandingPage.jsx      # Home — "Host" or "Join" CTA
 │   │   │   ├── AuthPage.jsx         # Host login / register
 │   │   │   ├── HostDashboard.jsx    # All quizzes list
-│   │   │   ├── QuizBuilder.jsx      # Create/edit quiz
+│   │   │   ├── QuizBuilder.jsx      # Create / edit quiz
 │   │   │   ├── HostLobby.jsx        # Waiting room, QR code, player list
 │   │   │   ├── HostLive.jsx         # Live dashboard — bar chart + controls
+│   │   │   ├── HistoryPage.jsx      # Past sessions for host
 │   │   │   ├── JoinPage.jsx         # Player room code entry
-│   │   │   ├── PlayerLobby.jsx      # Waiting for host to start
+│   │   │   ├── PlayerLobby.jsx      # Player waiting for host to start
 │   │   │   ├── PlayerGame.jsx       # Question + answer buttons
-│   │   │   ├── ResultsPage.jsx      # Final leaderboard (host + player)
-│   │   │   └── HistoryPage.jsx      # Past session history for host
+│   │   │   └── ResultsPage.jsx      # Final leaderboard
 │   │   ├── components/
 │   │   │   ├── LiveBarChart.jsx     # Recharts bar chart, updates via socket
 │   │   │   ├── Leaderboard.jsx      # Ranked player list
@@ -231,31 +231,33 @@ quizpulse/
 │   │   ├── hooks/
 │   │   │   └── useAuth.js           # JWT read/write helpers
 │   │   ├── api/
-│   │   │   └── quizApi.js           # Axios calls for CRUD + export
+│   │   │   └── quizApi.js           # All Axios + fetch calls
 │   │   └── App.jsx
 │   └── package.json
 │
-├── server/                          # Express backend (deploy to Render)
-│   ├── index.js                     # App entry — Express + Socket.io init
-│   ├── socket/
-│   │   └── quizSocket.js            # All socket event handlers
-│   ├── routes/
-│   │   ├── auth.js                  # POST /register, POST /login
-│   │   ├── quiz.js                  # CRUD for quizzes (protected)
-│   │   ├── session.js               # Session history reads
-│   │   └── export.js                # PDF export endpoint
-│   ├── models/
-│   │   ├── User.js
-│   │   ├── Quiz.js
-│   │   └── Session.js
-│   ├── middleware/
-│   │   └── authMiddleware.js
-│   ├── services/
-│   │   ├── quizService.js           # Scoring, leaderboard calculation
-│   │   └── pdfService.js            # Puppeteer PDF generation
-│   ├── utils/
-│   │   └── roomCode.js              # nanoid 6-char generator
-│   └── package.json
+└── server/
+    ├── server.js                    # Express + Socket.io entry point
+    ├── socket/
+    │   └── quizSocket.js            # All socket event handlers
+    ├── routes/
+    │   ├── auth.js                  # POST /register, POST /login, GET /me
+    │   ├── quiz.js                  # Quiz CRUD + session creation
+    │   ├── session.js               # Session history, results, validation
+    │   └── export.js                # PDF export (Puppeteer + PDFKit fallback)
+    ├── models/
+    │   ├── User.js
+    │   ├── Quiz.js
+    │   └── Session.js
+    ├── middleware/
+    │   └── authMiddleware.js
+    ├── services/
+    │   ├── quizService.js           # Scoring, leaderboard, vote aggregation
+    │   ├── pdfService.js            # Puppeteer PDF generation
+    │   └── pdfKitService.js         # PDFKit fallback PDF generation
+    ├── utils/
+    │   ├── roomCode.js              # nanoid 6-char generator
+    │   └── db.js
+    └── package.json
 ```
 
 ---
@@ -360,7 +362,10 @@ const SessionSchema = new mongoose.Schema({
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/export/:sessionId` | JWT | Generate and return PDF of session results |
+| GET | `/api/export/:sessionId` | JWT | High-quality PDF (Puppeteer) |
+| GET | `/api/export/:sessionId/simple` | JWT | Simple PDF (PDFKit fallback) |
+
+If the Puppeteer export fails due to memory constraints, the server returns `503` with `{ error: "pdf_quality_failed", fallbackAvailable: true }`. The client then prompts the user to retry with the PDFKit route.
 
 ---
 
@@ -502,18 +507,18 @@ Vote counts are stored in an **in-memory object on the server** (not in MongoDB)
 
 ```js
 // server/socket/quizSocket.js
-const liveVotes = {}  // { "roomCode:questionIndex": [0, 0, 0, 0] }
+const liveVotes = {}  // { "roomCode": { questionIndex: [0, 0, 0, 0] } }
 
 socket.on('player:answer', ({ roomCode, questionIndex, optionIndex, playerId }) => {
-  const key = `${roomCode}:${questionIndex}`
-  if (!liveVotes[key]) liveVotes[key] = [0, 0, 0, 0]
-  liveVotes[key][optionIndex]++
+  if (!liveVotes[roomCode]) liveVotes[roomCode] = {}
+  if (!liveVotes[roomCode][questionIndex]) liveVotes[roomCode][questionIndex] = [0, 0, 0, 0]
+  liveVotes[roomCode][questionIndex][optionIndex]++
 
   // Emit stats only to the host — not all players
   const hostSocketId = roomHosts[roomCode]
   io.to(hostSocketId).emit('quiz:stats', {
-    votes: liveVotes[key],
-    totalAnswered: liveVotes[key].reduce((a, b) => a + b, 0)
+    votes: liveVotes[roomCode][questionIndex],
+    totalAnswered: liveVotes[roomCode][questionIndex].reduce((a, b) => a + b, 0)
   })
 })
 ```
@@ -831,6 +836,38 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }))
 ### MongoDB Atlas
 
 Create a free M0 cluster. Whitelist `0.0.0.0/0` for Render's dynamic IPs. Use the connection string in `MONGODB_URI`.
+
+---
+
+## 18. Known Limitations
+
+- **In-memory session state:** Active quiz sessions (current question, live vote counts, host
+  socket mapping) are stored in process memory. If the server restarts during a live session,
+  the session cannot be resumed. Players and hosts will need to start a new session.
+  This is an acceptable tradeoff for the current architecture. A Redis-backed session store
+  would solve this for production deployments.
+
+- **PDF export RAM:** Puppeteer requires ~300MB RAM minimum. The free Render tier provides
+  512MB total. PDF export may fail under memory pressure on the free tier. Upgrade to a paid
+  instance (512MB dedicated) or use a Render background worker for PDF jobs.
+
+---
+
+## 19. Security Notes
+
+- Host JWT tokens are stored in `localStorage`. This is standard for SPAs but carries XSS risk.
+  For higher-security deployments, replace with an `httpOnly` cookie. The current implementation
+  is appropriate for a development/portfolio context.
+
+---
+
+## 20. Running tests
+
+```bash
+cd server && npm test
+```
+
+Tests cover scoring calculation, leaderboard sorting, and vote aggregation in `services/quizService.test.js`.
 
 ---
 
