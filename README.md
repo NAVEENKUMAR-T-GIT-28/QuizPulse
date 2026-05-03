@@ -1,4 +1,4 @@
-# QuizLive — Real-Time Quiz App
+# QuizPulse — Real-Time Quiz App
 > MERN Stack · Socket.io · JWT Auth for hosts · No auth for players · PDF export
 
 ---
@@ -27,7 +27,7 @@
 
 ## 1. Project Overview
 
-QuizLive is a real-time interactive quiz platform inspired by Mentimeter. A **host** creates a quiz, shares a 6-character room code or QR code, and controls the session live. **Players** join anonymously with just a name — no account needed. The host sees a live dashboard as answers come in. At the end, the host can export full session results as a PDF.
+QuizPulse is a real-time interactive quiz platform inspired by Mentimeter. A **host** creates a quiz, shares a 6-character room code or QR code, and controls the session live. **Players** join anonymously with just a name — no account needed. The host sees a live dashboard as answers come in. At the end, the host can export full session results as a PDF.
 
 ### What makes this different from a basic quiz app
 
@@ -201,7 +201,7 @@ Players get a `playerId` generated client-side using `crypto.randomUUID()` store
 ## 6. Folder Structure
 
 ```
-quizlive/
+quizpulse/
 ├── client/                          # React frontend (deploy to Vercel)
 │   ├── public/
 │   ├── src/
@@ -779,15 +779,15 @@ Step 10 — PDF export
 
 ```
 PORT=5000
-MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/quizlive
+MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/quizpulse
 JWT_SECRET=your_super_secret_key_here
-CLIENT_URL=https://quizlive.vercel.app
+CLIENT_URL=https://quizpulse.vercel.app
 ```
 
 ### Client `.env`
 
 ```
-VITE_SERVER_URL=https://quizlive-api.onrender.com
+VITE_SERVER_URL=https://quizpulse-api.onrender.com
 ```
 
 ---
@@ -818,7 +818,7 @@ Environment variables: add all from .env
 Use [cron-job.org](https://cron-job.org) to ping your Render URL every 10 minutes so the server doesn't spin down.
 
 ```
-URL: https://quizlive-api.onrender.com/health
+URL: https://quizpulse-api.onrender.com/health
 Interval: every 10 minutes
 ```
 

@@ -30,7 +30,7 @@ router.get('/:sessionId', authMiddleware, async (req, res) => {
 
     const pdf = await generateSessionPDF(session, quiz)
 
-    const filename = `quizlive-results-${session.roomCode}-${
+    const filename = `quizpulse-results-${session.roomCode}-${
       new Date().toISOString().split('T')[0]
     }.pdf`
 

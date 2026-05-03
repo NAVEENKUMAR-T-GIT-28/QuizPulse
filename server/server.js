@@ -5,6 +5,7 @@ const http       = require('http')
 const { Server } = require('socket.io')
 const mongoose   = require('mongoose')
 const cors       = require('cors')
+const rateLimit  = require('express-rate-limit')
 
 const authRoutes    = require('./routes/auth')
 const quizRoutes    = require('./routes/quiz')
@@ -19,6 +20,25 @@ const server = http.createServer(app)
 const allowedOrigins = process.env.CLIENT_URL 
   ? process.env.CLIENT_URL.split(',').map(url => url.trim())
   : ['http://localhost:5173']
+
+// ─────────────────────────────────────────────
+// Rate limiters
+// ─────────────────────────────────────────────
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,   // 15 minutes
+  max: 10,
+  message: { error: 'Too many attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: { error: 'Too many requests. Slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 // ─────────────────────────────────────────────
 // Socket.io setup
@@ -42,12 +62,12 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
 
 // ─────────────────────────────────────────────
-// Routes
+// Routes (with rate limiters)
 // ─────────────────────────────────────────────
-app.use('/api/auth',    authRoutes)
-app.use('/api/quiz',    quizRoutes)
-app.use('/api/session', sessionRoutes)
-app.use('/api/export',  exportRoutes)
+app.use('/api/auth',    authLimiter, authRoutes)
+app.use('/api/quiz',    apiLimiter,  quizRoutes)
+app.use('/api/session', apiLimiter,  sessionRoutes)
+app.use('/api/export',  apiLimiter,  exportRoutes)
 
 // Health check — keeps Render free tier alive
 app.get('/health', (req, res) => {

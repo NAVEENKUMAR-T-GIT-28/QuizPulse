@@ -69,7 +69,7 @@ export async function verifyHostSession(roomCode) {
 }
 
 export async function getSessionHistory() {
-  const { data } = await axios.get(`${BASE}/api/session`, { headers: authHeader() })
+  const { data } = await axios.get(`${BASE}/api/session/history`, { headers: authHeader() })
   return data   // { sessions: [...] }
 }
 

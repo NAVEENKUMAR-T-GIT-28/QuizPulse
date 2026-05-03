@@ -5,8 +5,117 @@ const authMiddleware = require('../middleware/authMiddleware')
 
 const router = express.Router()
 
-// GET /api/session/:roomCode
-// Public — used by players to validate a room code before joining
+// ─────────────────────────────────────────────
+// 1. Exact paths first — no route params
+// ─────────────────────────────────────────────
+
+// GET /api/session/history — all sessions for this host (protected)
+router.get('/history', authMiddleware, async (req, res) => {
+  try {
+    const sessions = await Session.find({ hostId: req.user.id })
+      .populate('quizId', 'title')
+      .select('roomCode status players startedAt endedAt quizId createdAt')
+      .sort({ createdAt: -1 })
+
+    const formatted = sessions.map((s) => ({
+      sessionId:    s._id,
+      roomCode:     s.roomCode,
+      status:       s.status,
+      quizTitle:    s.quizId?.title || 'Deleted quiz',
+      playerCount:  s.players.length,
+      startedAt:    s.startedAt,
+      endedAt:      s.endedAt,
+      createdAt:    s.createdAt
+    }))
+
+    res.json({ sessions: formatted })
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ─────────────────────────────────────────────
+// 2. Sub-resource paths that use :sessionId
+// ─────────────────────────────────────────────
+
+// GET /api/session/:sessionId/results — full results for a session (protected)
+router.get('/:sessionId/results', authMiddleware, async (req, res) => {
+  try {
+    const session = await Session.findOne({
+      _id: req.params.sessionId,
+      hostId: req.user.id
+    }).populate('quizId')
+
+    if (!session) return res.status(404).json({ error: 'Session not found' })
+
+    const quiz = session.quizId
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found — it may have been deleted.' })
+
+    const leaderboard = [...session.players]
+      .sort((a, b) => b.score - a.score)
+      .map((p, i) => ({ rank: i + 1, name: p.name, score: p.score }))
+
+    const questionStats = quiz.questions.map((q, i) => {
+      const questionResponses = session.responses.filter((r) => r.questionIndex === i)
+      const snapshot = session.voteSnapshots.find((v) => v.questionIndex === i)
+      const votes = snapshot ? snapshot.votes : new Array(q.options.length).fill(0)
+      const total = votes.reduce((a, b) => a + b, 0)
+
+      return {
+        index:        i,
+        text:         q.text,
+        options:      q.options,
+        correctIndex: q.correctIndex,
+        votes,
+        total,
+        percentages:  votes.map((v) => (total > 0 ? Math.round((v / total) * 100) : 0)),
+        correctRate:  total > 0
+          ? Math.round((votes[q.correctIndex] / total) * 100)
+          : 0
+      }
+    })
+
+    res.json({
+      session: {
+        roomCode:     session.roomCode,
+        status:       session.status,
+        quizTitle:    quiz.title,
+        totalPlayers: session.players.length,
+        startedAt:    session.startedAt,
+        endedAt:      session.endedAt
+      },
+      leaderboard,
+      questionStats
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// DELETE /api/session/:sessionId — delete a session (protected, host only)
+router.delete('/:sessionId', authMiddleware, async (req, res) => {
+  try {
+    const session = await Session.findOne({
+      _id: req.params.sessionId,
+      hostId: req.user.id
+    })
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found or you do not own it' })
+    }
+
+    await Session.deleteOne({ _id: session._id })
+    res.json({ message: 'Session deleted' })
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ─────────────────────────────────────────────
+// 3. Wildcard :roomCode routes LAST
+// ─────────────────────────────────────────────
+
+// GET /api/session/:roomCode — public, validate room code before joining
 router.get('/:roomCode', async (req, res) => {
   try {
     const session = await Session.findOne({
@@ -36,7 +145,6 @@ router.get('/:roomCode', async (req, res) => {
 })
 
 // GET /api/session/:roomCode/verify-host — confirm the caller owns this session (protected)
-// Used by HostLobby / HostLive on mount to block other logged-in users from viewing the page
 router.get('/:roomCode/verify-host', authMiddleware, async (req, res) => {
   try {
     const session = await Session.findOne({
@@ -52,102 +160,6 @@ router.get('/:roomCode/verify-host', authMiddleware, async (req, res) => {
     }
 
     res.json({ ok: true, status: session.status })
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' })
-  }
-})
-
-
-// GET /api/session/history — all sessions for this host (protected)
-router.get('/', authMiddleware, async (req, res) => {
-  try {
-    const sessions = await Session.find({ hostId: req.user.id })
-      .populate('quizId', 'title')
-      .select('roomCode status players startedAt endedAt quizId createdAt')
-      .sort({ createdAt: -1 })
-
-    const formatted = sessions.map((s) => ({
-      sessionId:    s._id,
-      roomCode:     s.roomCode,
-      status:       s.status,
-      quizTitle:    s.quizId?.title || 'Deleted quiz',
-      playerCount:  s.players.length,
-      startedAt:    s.startedAt,
-      endedAt:      s.endedAt,
-      createdAt:    s.createdAt
-    }))
-
-    res.json({ sessions: formatted })
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' })
-  }
-})
-
-// GET /api/session/:sessionId/results — full results for a session (protected)
-router.get('/:sessionId/results', authMiddleware, async (req, res) => {
-  try {
-    const session = await Session.findOne({
-      _id: req.params.sessionId,
-      hostId: req.user.id
-    }).populate('quizId')
-
-    if (!session) return res.status(404).json({ error: 'Session not found' })
-
-    const leaderboard = [...session.players]
-      .sort((a, b) => b.score - a.score)
-      .map((p, i) => ({ rank: i + 1, name: p.name, score: p.score }))
-
-    const questionStats = session.quizId.questions.map((q, i) => {
-      const questionResponses = session.responses.filter((r) => r.questionIndex === i)
-      const snapshot = session.voteSnapshots.find((v) => v.questionIndex === i)
-      const votes = snapshot ? snapshot.votes : new Array(q.options.length).fill(0)
-      const total = votes.reduce((a, b) => a + b, 0)
-
-      return {
-        index:        i,
-        text:         q.text,
-        options:      q.options,
-        correctIndex: q.correctIndex,
-        votes,
-        total,
-        percentages:  votes.map((v) => (total > 0 ? Math.round((v / total) * 100) : 0)),
-        correctRate:  total > 0
-          ? Math.round((votes[q.correctIndex] / total) * 100)
-          : 0
-      }
-    })
-
-    res.json({
-      session: {
-        roomCode:     session.roomCode,
-        status:       session.status,
-        quizTitle:    session.quizId.title,
-        totalPlayers: session.players.length,
-        startedAt:    session.startedAt,
-        endedAt:      session.endedAt
-      },
-      leaderboard,
-      questionStats
-    })
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' })
-  }
-})
-
-// DELETE /api/session/:sessionId — delete a session (protected, host only)
-router.delete('/:sessionId', authMiddleware, async (req, res) => {
-  try {
-    const session = await Session.findOne({
-      _id: req.params.sessionId,
-      hostId: req.user.id
-    })
-
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found or you do not own it' })
-    }
-
-    await Session.deleteOne({ _id: session._id })
-    res.json({ message: 'Session deleted' })
   } catch (err) {
     res.status(500).json({ error: 'Server error' })
   }

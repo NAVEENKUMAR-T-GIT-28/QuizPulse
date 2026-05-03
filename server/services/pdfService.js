@@ -19,9 +19,9 @@
 
 const puppeteer = require('puppeteer')
 
-const initials  = (name = '') => name.trim().slice(0, 2).toUpperCase()
-const fmt       = (n)         => Number(n).toLocaleString('en-US')
-const clamp     = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
+const initials = (name = '') => name.trim().slice(0, 2).toUpperCase()
+const fmt = (n) => Number(n).toLocaleString('en-US')
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
 
 const BAR_COLORS = ['#7C6AF7', '#4FC4CF', '#FF8C69', '#FFB347', '#69C369', '#FF6B9D']
 const rankMedals = ['🥇', '🥈', '🥉']
@@ -30,7 +30,7 @@ async function generateSessionPDF(session, quiz) {
   const leaderboard = [...session.players].sort((a, b) => b.score - a.score)
 
   const questionStats = quiz.questions.map((q, i) => {
-    const snap  = session.voteSnapshots.find((v) => v.questionIndex === i)
+    const snap = session.voteSnapshots.find((v) => v.questionIndex === i)
     const votes = snap ? snap.votes : new Array(q.options.length).fill(0)
     const total = votes.reduce((a, b) => a + b, 0)
     const percentages = votes.map((v) => (total > 0 ? Math.round((v / total) * 100) : 0))
@@ -52,12 +52,13 @@ async function generateSessionPDF(session, quiz) {
   const html = buildHTML({ session, quiz, questionStats, leaderboard, avgAccuracy, avgScore, dateStr, timeStr })
 
   const browser = await puppeteer.launch({
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     headless: 'new'
   })
   try {
     const page = await browser.newPage()
-    await page.setContent(html, { waitUntil: 'networkidle0' })
+    await page.setDefaultNavigationTimeout(15000)
+    await page.setContent(html, { waitUntil: 'domcontentloaded' })
     return await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -283,7 +284,7 @@ function pageHeader(quizTitle, rightText) {
   return `<div class="page-header"><div class="page-header-logo">QuizPulse</div><div class="page-header-meta">${quizTitle} &nbsp;·&nbsp; ${rightText}</div></div>`
 }
 
-function avatarClass(rank) { return ['av-1','av-2','av-3'][rank] ?? 'av-n' }
+function avatarClass(rank) { return ['av-1', 'av-2', 'av-3'][rank] ?? 'av-n' }
 
 function ovFillClass(pct) {
   if (pct >= 60) return 'ov-fill-green'
@@ -298,7 +299,7 @@ function ovPctColor(pct) {
 
 function buildHTML({ session, quiz, questionStats, leaderboard, avgAccuracy, avgScore, dateStr, timeStr }) {
   const totalPages = 1 + 1 + questionStats.length + 1
-  const LETTERS = ['A','B','C','D','E','F']
+  const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F']
 
   /* PAGE 1 — COVER */
   const top3 = leaderboard.slice(0, 3)
@@ -310,7 +311,7 @@ function buildHTML({ session, quiz, questionStats, leaderboard, avgAccuracy, avg
   const podiumHTML = podiumOrder.map(({ idx, blockClass, label, crown }) => {
     const p = top3[idx]
     if (!p) return '<div class="podium-slot"></div>'
-    const scoreColor = ['#F59E0B','#9CA3AF','#CD7C2E'][idx] ?? '#7C6AF7'
+    const scoreColor = ['#F59E0B', '#9CA3AF', '#CD7C2E'][idx] ?? '#7C6AF7'
     return `<div class="podium-slot">
       <div style="font-size:16px;margin-bottom:5px;text-align:center">${crown ? '&#128081;' : '&nbsp;'}</div>
       <div class="podium-avatar ${avatarClass(idx)}">${initials(p.name)}</div>
@@ -357,8 +358,8 @@ function buildHTML({ session, quiz, questionStats, leaderboard, avgAccuracy, avg
     </div>`
   }).join('')
 
-  const highestQ = [...questionStats].sort((a,b) => b.correctRate - a.correctRate)[0]
-  const lowestQ  = [...questionStats].sort((a,b) => a.correctRate - b.correctRate)[0]
+  const highestQ = [...questionStats].sort((a, b) => b.correctRate - a.correctRate)[0]
+  const lowestQ = [...questionStats].sort((a, b) => a.correctRate - b.correctRate)[0]
 
   const overviewPage = `
   <div class="page">
@@ -431,7 +432,7 @@ function buildHTML({ session, quiz, questionStats, leaderboard, avgAccuracy, avg
   const lbPodiumHTML = lbPodiumOrder.map(({ idx, blockClass, label, crown }) => {
     const p = lb3[idx]
     if (!p) return '<div class="lb-slot"></div>'
-    const scoreColor = ['#F59E0B','#9CA3AF','#CD7C2E'][idx] ?? '#7C6AF7'
+    const scoreColor = ['#F59E0B', '#9CA3AF', '#CD7C2E'][idx] ?? '#7C6AF7'
     return `<div class="lb-slot">
       <div style="font-size:19px;margin-bottom:7px;text-align:center">${crown ? '&#128081;' : '&nbsp;'}</div>
       <div class="lb-avatar ${avatarClass(idx)}">${initials(p.name)}</div>
@@ -447,7 +448,7 @@ function buildHTML({ session, quiz, questionStats, leaderboard, avgAccuracy, avg
     const barPct = Math.round((p.score / topScore) * 100)
     const rankDisplay = rankMedals[ri] ?? `#${ri + 1}`
     return `<div class="lb-row ${ri < 3 ? 'lb-row-top' : ''}">
-      <div class="lb-rank" style="color:${['#F59E0B','#9CA3AF','#CD7C2E'][ri] ?? '#6B7280'}">${rankDisplay}</div>
+      <div class="lb-rank" style="color:${['#F59E0B', '#9CA3AF', '#CD7C2E'][ri] ?? '#6B7280'}">${rankDisplay}</div>
       <div class="lb-av ${avClass}">${initials(p.name)}</div>
       <div class="lb-player-name">${p.name}</div>
       <div class="lb-score-bar-wrap">

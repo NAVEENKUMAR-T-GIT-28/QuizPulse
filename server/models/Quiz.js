@@ -83,4 +83,11 @@ QuizSchema.pre('save', function (next) {
   next()
 })
 
+// Cascade: when a quiz is deleted, remove all its sessions
+QuizSchema.post('findOneAndDelete', async function (doc) {
+  if (!doc) return
+  const Session = mongoose.model('Session')
+  await Session.deleteMany({ quizId: doc._id })
+})
+
 module.exports = mongoose.model('Quiz', QuizSchema)

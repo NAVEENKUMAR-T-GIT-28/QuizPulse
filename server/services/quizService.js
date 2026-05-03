@@ -90,10 +90,13 @@ function getVoteStats(session, questionIndex, optionCount) {
  * 3. Generate vote snapshot
  * 4. Return summary for broadcast
  */
-async function processReveal(session, quiz) {
+async function processReveal(session, quiz, resolvedTimeLimit) {
   const qIndex = session.currentIndex
   const question = quiz.questions[qIndex]
   const correctIndex = question.correctIndex
+
+  // Use the resolved limit passed in from the socket handler
+  const timeLimit = resolvedTimeLimit ?? question.timeLimit
 
   // 1. Mark responses for this question
   const responses = session.responses.filter((r) => r.questionIndex === qIndex)
@@ -106,7 +109,7 @@ async function processReveal(session, quiz) {
     session,
     qIndex,
     session.questionOpenedAt,
-    question.timeLimit
+    timeLimit
   )
 
   // Build a map of { playerId -> pointsAwarded } for this question

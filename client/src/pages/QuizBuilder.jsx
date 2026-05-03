@@ -247,6 +247,17 @@ export default function QuizBuilder() {
           <form onSubmit={handleSubmit} style={{ maxWidth: 640 }}>
             {error && <div className="error-msg">{error}</div>}
 
+            {/* Title (Mobile Only) */}
+            <div className="mobile-only" style={{ marginBottom: 24 }}>
+              <div className="section-label">Quiz Title</div>
+              <input
+                className="input"
+                placeholder="Enter quiz title..."
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+
             {/* Description + Timer Mode (shown only on first question view) */}
             {activeQ === 0 && (
               <>

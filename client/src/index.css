@@ -379,10 +379,14 @@ body {
 }
 .sidebar-overlay.open { opacity: 1; }
 
+.mobile-only { display: none; }
+
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
   /* Show hamburger */
   .hamburger { display: flex; }
+  
+  .mobile-only { display: block !important; }
 
   /* Sidebar becomes a slide-in drawer */
   .sidebar {

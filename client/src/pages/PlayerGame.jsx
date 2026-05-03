@@ -58,6 +58,10 @@ export default function PlayerGame() {
     function onEnded({ finalLeaderboard }) {
       setLeaderboard(finalLeaderboard || [])
       setStatus('ended')
+      // Clear reconnection data
+      sessionStorage.removeItem('qp_roomCode')
+      sessionStorage.removeItem('qp_playerId')
+      sessionStorage.removeItem('qp_playerName')
     }
 
     function onReconnect() {

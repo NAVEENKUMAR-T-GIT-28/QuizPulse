@@ -1,6 +1,7 @@
-const jwt     = require('jsonwebtoken')
-const Session = require('../models/Session')
-const Quiz    = require('../models/Quiz')
+const jwt          = require('jsonwebtoken')
+const sanitizeHtml = require('sanitize-html')
+const Session      = require('../models/Session')
+const Quiz         = require('../models/Quiz')
 const { processReveal, buildLeaderboard, getVoteStats } = require('../services/quizService')
 
 /**
@@ -11,6 +12,7 @@ const liveVotes  = {}   // { "ROOMCODE:qIndex": [0, 0, 0, 0] }
 const roomHosts  = {}   // { "ROOMCODE": socketId }
 const roomTimers = {}   // { "ROOMCODE": timeoutRef }
 const roomIntervals = {} // { "ROOMCODE": intervalRef }
+const lastAnswerTime = {} // { socketId: timestamp } — answer throttle
 
 /**
  * Verify the JWT from socket handshake auth and return the decoded payload,
@@ -26,6 +28,12 @@ function verifySocketToken(socket) {
   }
 }
 
+/** Resolve the effective time limit for a question */
+function resolveTimeLimit(quiz, questionIndex) {
+  if (quiz.timerMode === 'quiz') return quiz.quizTimeLimit
+  return quiz.questions[questionIndex].timeLimit
+}
+
 function initQuizSocket(io) {
   io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`)
@@ -37,7 +45,10 @@ function initQuizSocket(io) {
       try {
         if (!roomCode || !playerName || !playerId) return
 
-        const trimmedName = playerName.trim()
+        const trimmedName = sanitizeHtml(playerName.trim(), {
+          allowedTags: [],
+          allowedAttributes: {}
+        })
         if (trimmedName.length < 1) {
           return socket.emit('error', { message: 'Player name cannot be empty' })
         }
@@ -198,6 +209,11 @@ function initQuizSocket(io) {
     // ─────────────────────────────────────────────
     socket.on('player:answer', async ({ roomCode, questionIndex, optionIndex, playerId }) => {
       try {
+        // Answer throttle — ignore duplicate fires within 500ms
+        const now = Date.now()
+        if (lastAnswerTime[socket.id] && now - lastAnswerTime[socket.id] < 500) return
+        lastAnswerTime[socket.id] = now
+
         const code = roomCode?.toUpperCase()
 
         // Validate inputs
@@ -285,7 +301,8 @@ function initQuizSocket(io) {
         await session.save()
 
         // Calculate scores and build leaderboard
-        const { correctIndex, votes, leaderboard, pointsMap } = await processReveal(session, quiz)
+        const timeLimit = resolveTimeLimit(quiz, session.currentIndex)
+        const { correctIndex, votes, leaderboard, pointsMap } = await processReveal(session, quiz, timeLimit)
 
         // Broadcast reveal to everyone in the room
         io.to(code).emit('quiz:result', {
@@ -389,6 +406,9 @@ function initQuizSocket(io) {
     socket.on('disconnect', () => {
       const code = socket.data.roomCode
 
+      // Clean up answer throttle
+      delete lastAnswerTime[socket.id]
+
       if (socket.data.isHost && code) {
         // Notify players that host disconnected
         socket.to(code).emit('host:disconnected', {
@@ -433,7 +453,7 @@ function startQuestionTimer(io, code, session, quiz, timeLimit) {
       freshSession.status = 'revealing'
       await freshSession.save()
 
-      const { correctIndex, votes, leaderboard, pointsMap } = await processReveal(freshSession, quiz)
+      const { correctIndex, votes, leaderboard, pointsMap } = await processReveal(freshSession, quiz, timeLimit)
 
       io.to(code).emit('quiz:result', {
         correctIndex,

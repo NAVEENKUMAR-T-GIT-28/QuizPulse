@@ -20,6 +20,10 @@ export default function PlayerLobby() {
 
     function onPlayerJoined({ quizTitle: title, status }) {
       setQuizTitle(title || '')
+      // Persist for reconnection
+      sessionStorage.setItem('qp_roomCode', roomCode)
+      sessionStorage.setItem('qp_playerId', playerId)
+      sessionStorage.setItem('qp_playerName', playerName)
       if (status === 'live') navigate(`/play/${roomCode}`)
     }
 
