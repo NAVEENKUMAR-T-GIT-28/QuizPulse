@@ -24,7 +24,6 @@ export default function PlayerGame() {
   const [lastPointsEarned, setLastPointsEarned] = useState(0)
 
   useEffect(() => {
-    // Socket should already be connected from PlayerLobby
     if (!socket.connected) socket.connect()
 
     function onQuestion(payload) {
@@ -58,39 +57,70 @@ export default function PlayerGame() {
     function onEnded({ finalLeaderboard }) {
       setLeaderboard(finalLeaderboard || [])
       setStatus('ended')
-      // Clear reconnection data
       sessionStorage.removeItem('qp_roomCode')
       sessionStorage.removeItem('qp_playerId')
       sessionStorage.removeItem('qp_playerName')
+      // also clear the pq_ keys written by JoinPage
+      sessionStorage.removeItem('pq_roomCode')
+      sessionStorage.removeItem('pq_playerId')
+      sessionStorage.removeItem('pq_playerName')
     }
 
+    // ─── NEW: handle the server's response to player:join mid-game ───
+    function onPlayerJoined({ status: sessionStatus, currentQuestion: cq }) {
+      // If the quiz is already live and the server sent us the current question, render it
+      if (cq && (sessionStatus === 'live' || sessionStatus === 'revealing')) {
+        setQuestion(cq)
+        setStatus(sessionStatus)
+      }
+      // If status is 'ended', we missed the whole game — show ended screen
+      if (sessionStatus === 'ended') {
+        setStatus('ended')
+      }
+    }
+
+    // ─── FIXED: read from sessionStorage, not Zustand (which is wiped on reload) ───
     function onReconnect() {
-      socket.emit('player:join', { roomCode, playerName: useQuizStore.getState().playerName, playerId: useQuizStore.getState().playerId })
+      // Prefer Zustand (fastest), fall back to sessionStorage (survives reload)
+      const state = useQuizStore.getState()
+      const pid  = state.playerId   || sessionStorage.getItem('qp_playerId')   || sessionStorage.getItem('pq_playerId')
+      const name = state.playerName || sessionStorage.getItem('qp_playerName') || sessionStorage.getItem('pq_playerName')
+
+      if (pid && name && roomCode) {
+        // Restore Zustand if it was wiped
+        if (!state.playerId)   useQuizStore.getState().setPlayerId(pid)
+        if (!state.playerName) useQuizStore.getState().setPlayerName(name)
+
+        socket.emit('player:join', { roomCode, playerName: name, playerId: pid })
+      }
     }
 
     // Remove stale listeners first
-    socket.off('quiz:question', onQuestion)
-    socket.off('quiz:result', onResult)
-    socket.off('timer:tick', onTick)
-    socket.off('answer:received', onAnswerReceived)
-    socket.off('quiz:ended', onEnded)
-    socket.off('connect', onReconnect)
+    socket.off('quiz:question',  onQuestion)
+    socket.off('quiz:result',    onResult)
+    socket.off('timer:tick',     onTick)
+    socket.off('answer:received',onAnswerReceived)
+    socket.off('quiz:ended',     onEnded)
+    socket.off('player:joined',  onPlayerJoined)  // ← NEW
+    socket.off('connect',        onReconnect)
 
     // Register fresh listeners
-    socket.on('quiz:question', onQuestion)
-    socket.on('quiz:result', onResult)
-    socket.on('timer:tick', onTick)
+    socket.on('quiz:question',   onQuestion)
+    socket.on('quiz:result',     onResult)
+    socket.on('timer:tick',      onTick)
     socket.on('answer:received', onAnswerReceived)
-    socket.on('quiz:ended', onEnded)
-    socket.on('connect', onReconnect)
+    socket.on('quiz:ended',      onEnded)
+    socket.on('player:joined',   onPlayerJoined)  // ← NEW
+    socket.on('connect',         onReconnect)
 
     return () => {
-      socket.off('quiz:question', onQuestion)
-      socket.off('quiz:result', onResult)
-      socket.off('timer:tick', onTick)
+      socket.off('quiz:question',   onQuestion)
+      socket.off('quiz:result',     onResult)
+      socket.off('timer:tick',      onTick)
       socket.off('answer:received', onAnswerReceived)
-      socket.off('quiz:ended', onEnded)
-      socket.off('connect', onReconnect)
+      socket.off('quiz:ended',      onEnded)
+      socket.off('player:joined',   onPlayerJoined)
+      socket.off('connect',         onReconnect)
       socket.disconnect()
     }
   }, [roomCode, setQuestion, setStatus, setCorrectIndex, setLeaderboard, setMyResult, setTimer])

@@ -9,8 +9,8 @@ export default function PlayerLobby() {
   const { playerId: storedPlayerId, playerName: storedPlayerName, setQuestion, setStatus } = useQuizStore()
 
   // Fallback to sessionStorage if Zustand store was wiped by a browser refresh
-  const playerId   = storedPlayerId   || sessionStorage.getItem('pq_playerId')
-  const playerName = storedPlayerName || sessionStorage.getItem('pq_playerName')
+  const playerId   = storedPlayerId   || sessionStorage.getItem('qp_playerId')   || sessionStorage.getItem('pq_playerId')
+  const playerName = storedPlayerName || sessionStorage.getItem('qp_playerName') || sessionStorage.getItem('pq_playerName')
   const [quizTitle, setQuizTitle] = useState('')
 
   useEffect(() => {

@@ -87,11 +87,31 @@ function initQuizSocket(io) {
         socket.data.playerId  = playerId
         socket.data.isHost    = false
 
+        const quiz = await Quiz.findById(session.quizId)
+
+        // Build the current question payload if the session is mid-game
+        // (never include correctIndex — same rule as quiz:question broadcast)
+        let currentQuestion = null
+        if ((session.status === 'live' || session.status === 'revealing') && quiz) {
+          const q = quiz.questions[session.currentIndex]
+          if (q) {
+            const timeLimit = quiz.timerMode === 'quiz' ? quiz.quizTimeLimit : q.timeLimit
+            currentQuestion = {
+              index:          session.currentIndex,
+              totalQuestions: quiz.questions.length,
+              text:           q.text,
+              options:        q.options,
+              timeLimit,
+            }
+          }
+        }
+
         // Tell the player they're in
         socket.emit('player:joined', {
-          roomCode:  code,
-          quizTitle: (await Quiz.findById(session.quizId).select('title')).title,
-          status:    session.status,
+          roomCode:        code,
+          quizTitle:       quiz?.title || '',
+          status:          session.status,
+          currentQuestion, // null if waiting/ended, populated if live/revealing
         })
 
         // Update host with new player list

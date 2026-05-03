@@ -22,10 +22,10 @@ export default function JoinPage() {
       const data = await validateRoom(roomCode.toUpperCase())
 
       // 2. Generate or retrieve a persistent playerId
-      let playerId = sessionStorage.getItem('playerId')
+      let playerId = sessionStorage.getItem('qp_playerId')
       if (!playerId) {
         playerId = crypto.randomUUID()
-        sessionStorage.setItem('playerId', playerId)
+        sessionStorage.setItem('qp_playerId', playerId)
       }
 
       // 3. Save player info to store
@@ -34,9 +34,9 @@ export default function JoinPage() {
       useQuizStore.getState().setRoom(data.roomCode, data.sessionId)
 
       // 4. Persist to sessionStorage so lobby/game pages survive a browser refresh
-      sessionStorage.setItem('pq_playerName', playerName.trim())
-      sessionStorage.setItem('pq_playerId', playerId)
-      sessionStorage.setItem('pq_roomCode', data.roomCode)
+      sessionStorage.setItem('qp_playerName', playerName.trim())
+      sessionStorage.setItem('qp_playerId', playerId)
+      sessionStorage.setItem('qp_roomCode', data.roomCode)
 
       // 5. Navigate to player lobby
       navigate(`/lobby/${data.roomCode}/wait`)
