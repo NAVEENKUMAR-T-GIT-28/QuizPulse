@@ -109,6 +109,12 @@ async function processReveal(session, quiz) {
     question.timeLimit
   )
 
+  // Build a map of { playerId -> pointsAwarded } for this question
+  const pointsMap = {}
+  for (const r of responses) {
+    pointsMap[r.playerId] = r.pointsAwarded
+  }
+
   // 3. Generate and save vote snapshot
   const votes = getVoteStats(session, qIndex, question.options.length)
   session.voteSnapshots.push({ questionIndex: qIndex, votes })
@@ -119,7 +125,8 @@ async function processReveal(session, quiz) {
   return {
     correctIndex,
     votes,
-    leaderboard: buildLeaderboard(sortedPlayers)
+    leaderboard: buildLeaderboard(sortedPlayers),
+    pointsMap,
   }
 }
 

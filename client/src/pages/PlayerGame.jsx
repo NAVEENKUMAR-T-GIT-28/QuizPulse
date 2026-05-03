@@ -21,6 +21,7 @@ export default function PlayerGame() {
 
   const [correctIndex, setCorrectIndex] = useState(null)
   const [answerConfirmed, setAnswerConfirmed] = useState(false)
+  const [lastPointsEarned, setLastPointsEarned] = useState(0)
 
   useEffect(() => {
     // Socket should already be connected from PlayerLobby
@@ -31,17 +32,19 @@ export default function PlayerGame() {
       setStatus('live')
       setCorrectIndex(null)
       setAnswerConfirmed(false)
+      setLastPointsEarned(0)
     }
 
-    function onResult({ correctIndex: ci, leaderboard: lb }) {
+    function onResult({ correctIndex: ci, leaderboard: lb, pointsMap }) {
       setCorrectIndex(ci)
       setLeaderboard(lb)
       setStatus('revealing')
-      // Check if player's answer was correct
       const currentAnswer = useQuizStore.getState().myAnswer
-      if (currentAnswer !== null) {
-        setMyResult(currentAnswer === ci, currentAnswer === ci ? 1000 : 0)
-      }
+      const pid = useQuizStore.getState().playerId
+      const pointsEarned = (pointsMap && pid && pointsMap[pid]) ? pointsMap[pid] : 0
+      const correct = currentAnswer !== null && currentAnswer === ci
+      setMyResult(correct, pointsEarned)
+      setLastPointsEarned(pointsEarned)
     }
 
     function onTick({ remaining }) {
@@ -216,7 +219,7 @@ export default function PlayerGame() {
                         {isCorrect ? '✓ Correct!' : '✗ Wrong'}
                       </div>
                       <div style={{ fontSize: 13, color: 'var(--text2)' }}>
-                        {isCorrect ? '+1000 pts' : 'Better luck next time'}
+                        {isCorrect ? `+${lastPointsEarned} pts` : 'Better luck next time'}
                       </div>
                     </div>
                   </div>

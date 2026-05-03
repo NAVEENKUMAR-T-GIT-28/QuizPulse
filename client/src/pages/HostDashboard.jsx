@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { getQuizzes, deleteQuiz, createSession } from '../api/quizApi'
 import { clearAuth, getUser } from '../hooks/useAuth'
 
 export default function HostDashboard() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [quizzes, setQuizzes]   = useState([])
   const [loading, setLoading]   = useState(true)
   const [fetchError, setFetchError] = useState(null)
   const [launching, setLaunching] = useState(null)
+  // Error message passed via navigation state (e.g. from unauthorized host redirect)
+  const [redirectError, setRedirectError] = useState(location.state?.error || null)
   const user = getUser()
 
   useEffect(() => {
@@ -111,6 +114,17 @@ export default function HostDashboard() {
               <span className="mat sm">add</span>New quiz
             </button>
           </div>
+
+          {/* Redirect error banner (e.g. unauthorized lobby access) */}
+          {redirectError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 'var(--r)', padding: '12px 16px', marginBottom: 20 }}>
+              <span className="mat sm" style={{ color: '#f87171' }}>lock</span>
+              <span style={{ fontSize: 14, color: '#f87171', flex: 1 }}>{redirectError}</span>
+              <button onClick={() => setRedirectError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 0 }}>
+                <span className="mat sm">close</span>
+              </button>
+            </div>
+          )}
 
           {/* Stats */}
           <div className="grid-4" style={{ marginBottom: 32 }}>

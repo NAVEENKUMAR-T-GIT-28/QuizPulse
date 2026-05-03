@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import socket from '../socket/socket'
 import useQuizStore from '../store/useQuizStore'
 import QRCodeDisplay from '../components/QRCodeDisplay'
+import { verifyHostSession } from '../api/quizApi'
 
 const AVATAR_COLORS = [
   { bg: 'rgba(99,102,241,.15)', color: 'var(--indigo-l)' },
@@ -22,8 +23,27 @@ export default function HostLobby() {
   const navigate = useNavigate()
   const { players, setPlayers } = useQuizStore()
   const hasJoined = useRef(false)
+  const [authChecked, setAuthChecked] = useState(false)
 
+  // ── Step 1: verify ownership before doing anything else ──────────────────
   useEffect(() => {
+    verifyHostSession(roomCode)
+      .then(() => setAuthChecked(true))
+      .catch((err) => {
+        const status = err?.response?.status
+        if (status === 403) {
+          navigate('/dashboard', { replace: true, state: { error: 'You do not have access to that session.' } })
+        } else if (status === 404) {
+          navigate('/dashboard', { replace: true, state: { error: 'Session not found.' } })
+        } else {
+          navigate('/dashboard', { replace: true })
+        }
+      })
+  }, [roomCode, navigate])
+
+  // ── Step 2: socket setup — only runs after auth check passes ─────────────
+  useEffect(() => {
+    if (!authChecked) return
     // Connect only once
     if (!socket.connected) {
       socket.connect()
@@ -71,7 +91,7 @@ export default function HostLobby() {
       socket.off('connect', onReconnect)
       // Do NOT disconnect here — socket is needed in HostLive
     }
-  }, [roomCode, setPlayers, navigate])
+  }, [roomCode, setPlayers, navigate, authChecked])
 
   function handleStart() {
     socket.emit('quiz:start', { roomCode })
@@ -82,6 +102,9 @@ export default function HostLobby() {
     const url = `${window.location.origin}/join/${roomCode}`
     navigator.clipboard.writeText(url).catch(() => {})
   }
+
+  // Don't render host UI until ownership is confirmed — prevents flash of content
+  if (!authChecked) return null
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

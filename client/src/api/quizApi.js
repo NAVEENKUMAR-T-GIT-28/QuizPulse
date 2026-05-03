@@ -61,6 +61,13 @@ export async function validateRoom(roomCode) {
   return data   // { sessionId, roomCode, status, quizTitle, totalQuestions, playerCount }
 }
 
+export async function verifyHostSession(roomCode) {
+  // Returns { ok: true, status } if the logged-in user owns this session.
+  // Throws with response.status 403 if they don't, 404 if not found.
+  const { data } = await axios.get(`${BASE}/api/session/${roomCode}/verify-host`, { headers: authHeader() })
+  return data
+}
+
 export async function getSessionHistory() {
   const { data } = await axios.get(`${BASE}/api/session`, { headers: authHeader() })
   return data   // { sessions: [...] }

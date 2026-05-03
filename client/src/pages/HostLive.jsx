@@ -5,6 +5,7 @@ import useQuizStore from '../store/useQuizStore'
 import LiveBarChart from '../components/LiveBarChart'
 import CountdownTimer from '../components/CountdownTimer'
 import Leaderboard from '../components/Leaderboard'
+import { verifyHostSession } from '../api/quizApi'
 
 export default function HostLive() {
   const { roomCode } = useParams()
@@ -20,8 +21,25 @@ export default function HostLive() {
   const [correctIndex, setCorrectIndex] = useState(null)
   const [totalAnswered, setTotalAnswered] = useState(0)
   const [totalPlayers, setTotalPlayers] = useState(0)
+  const [authChecked, setAuthChecked] = useState(false)
 
+  // ── Step 1: verify ownership before doing anything else ──────────────────
   useEffect(() => {
+    verifyHostSession(roomCode)
+      .then(() => setAuthChecked(true))
+      .catch((err) => {
+        const status = err?.response?.status
+        if (status === 403) {
+          navigate('/dashboard', { replace: true, state: { error: 'You do not have access to that session.' } })
+        } else {
+          navigate('/dashboard', { replace: true })
+        }
+      })
+  }, [roomCode, navigate])
+
+  // ── Step 2: socket setup — only runs after auth check passes ─────────────
+  useEffect(() => {
+    if (!authChecked) return
     // Connect (safe to call if already connected)
     if (!socket.connected) socket.connect()
 
@@ -81,7 +99,7 @@ export default function HostLive() {
       socket.off('connect', onReconnect)
       socket.disconnect()
     }
-  }, [roomCode])
+  }, [roomCode, authChecked])
 
   function handleReveal() {
     socket.emit('quiz:reveal', { roomCode })
@@ -101,6 +119,9 @@ export default function HostLive() {
   const totalVotes = votes.reduce((s, v) => s + v, 0)
   const correctVotes = correctIndex !== null && votes[correctIndex] ? votes[correctIndex] : 0
   const accuracy = totalVotes > 0 ? Math.round((correctVotes / totalVotes) * 100) : 0
+
+  // Don't render host UI until ownership is confirmed — prevents flash of content
+  if (!authChecked) return null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>

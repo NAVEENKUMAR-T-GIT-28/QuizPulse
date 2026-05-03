@@ -1,5 +1,6 @@
+const jwt     = require('jsonwebtoken')
 const Session = require('../models/Session')
-const Quiz = require('../models/Quiz')
+const Quiz    = require('../models/Quiz')
 const { processReveal, buildLeaderboard, getVoteStats } = require('../services/quizService')
 
 /**
@@ -11,6 +12,20 @@ const roomHosts  = {}   // { "ROOMCODE": socketId }
 const roomTimers = {}   // { "ROOMCODE": timeoutRef }
 const roomIntervals = {} // { "ROOMCODE": intervalRef }
 
+/**
+ * Verify the JWT from socket handshake auth and return the decoded payload,
+ * or null if missing/invalid.
+ */
+function verifySocketToken(socket) {
+  try {
+    const token = socket.handshake.auth?.token
+    if (!token) return null
+    return jwt.verify(token, process.env.JWT_SECRET)
+  } catch {
+    return null
+  }
+}
+
 function initQuizSocket(io) {
   io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`)
@@ -21,6 +36,14 @@ function initQuizSocket(io) {
     socket.on('player:join', async ({ roomCode, playerName, playerId }) => {
       try {
         if (!roomCode || !playerName || !playerId) return
+
+        const trimmedName = playerName.trim()
+        if (trimmedName.length < 1) {
+          return socket.emit('error', { message: 'Player name cannot be empty' })
+        }
+        if (trimmedName.length > 30) {
+          return socket.emit('error', { message: 'Player name cannot exceed 30 characters' })
+        }
 
         const code = roomCode.toUpperCase().trim()
         let session = await Session.findOne({ roomCode: code })
@@ -35,7 +58,7 @@ function initQuizSocket(io) {
         // Prevent duplicate players (reconnect case) atomically
         let updatedSession = await Session.findOneAndUpdate(
           { roomCode: code, 'players.playerId': { $ne: playerId } },
-          { $push: { players: { playerId, name: playerName.trim(), score: 0 } } },
+          { $push: { players: { playerId, name: trimmedName, score: 0 } } },
           { new: true }
         )
 
@@ -69,7 +92,7 @@ function initQuizSocket(io) {
           })
         }
 
-        console.log(`Player "${playerName}" joined room ${code}`)
+        console.log(`Player "${trimmedName}" joined room ${code}`)
       } catch (err) {
         console.error('player:join error:', err)
         socket.emit('error', { message: 'Failed to join room' })
@@ -83,6 +106,12 @@ function initQuizSocket(io) {
       try {
         if (!roomCode) return
 
+        // Verify the JWT from the socket handshake
+        const decoded = verifySocketToken(socket)
+        if (!decoded) {
+          return socket.emit('error', { message: 'Authentication required' })
+        }
+
         const code = roomCode.toUpperCase().trim()
         const session = await Session.findOne({ roomCode: code })
 
@@ -90,10 +119,16 @@ function initQuizSocket(io) {
           return socket.emit('error', { message: 'Session not found' })
         }
 
+        // Confirm the authenticated user actually owns this session
+        if (session.hostId.toString() !== decoded.id) {
+          return socket.emit('error', { message: 'Not authorised to host this session' })
+        }
+
         socket.join(code)
-        socket.data.roomCode = code
-        socket.data.isHost   = true
-        roomHosts[code]      = socket.id
+        socket.data.roomCode  = code
+        socket.data.isHost    = true
+        socket.data.hostId    = decoded.id
+        roomHosts[code]       = socket.id
 
         socket.emit('host:joined', {
           roomCode: code,
@@ -161,33 +196,48 @@ function initQuizSocket(io) {
     socket.on('player:answer', async ({ roomCode, questionIndex, optionIndex, playerId }) => {
       try {
         const code = roomCode?.toUpperCase()
-        const session = await Session.findOne({ roomCode: code })
 
+        // Validate inputs
+        const session = await Session.findOne({ roomCode: code })
         if (!session) return
         if (session.status !== 'live') return
         if (session.currentIndex !== questionIndex) return  // wrong question
 
-        // Prevent double answering
-        const alreadyAnswered = session.responses.some(
-          (r) => r.playerId === playerId && r.questionIndex === questionIndex
-        )
-        if (alreadyAnswered) return
-
-        // Validate optionIndex
+        // Validate optionIndex against the actual question
         const quiz = await Quiz.findById(session.quizId)
         const question = quiz.questions[questionIndex]
         if (!question || optionIndex < 0 || optionIndex >= question.options.length) return
 
-        // Save response (isCorrect and points calculated at reveal)
-        session.responses.push({
-          playerId,
-          questionIndex,
-          optionIndex,
-          isCorrect:     false,  // updated at reveal
-          pointsAwarded: 0,      // updated at reveal
-          answeredAt:    new Date(),
-        })
-        await session.save()
+        // Atomically push the response only if this player hasn't answered this question yet.
+        // The compound condition on the $push prevents duplicates without a separate read.
+        const updated = await Session.findOneAndUpdate(
+          {
+            roomCode: code,
+            status: 'live',
+            currentIndex: questionIndex,
+            'responses': {
+              $not: {
+                $elemMatch: { playerId, questionIndex }
+              }
+            }
+          },
+          {
+            $push: {
+              responses: {
+                playerId,
+                questionIndex,
+                optionIndex,
+                isCorrect:     false,  // updated at reveal
+                pointsAwarded: 0,      // updated at reveal
+                answeredAt:    new Date(),
+              }
+            }
+          },
+          { new: true }
+        )
+
+        // null means either already answered, or session state changed — either way, bail
+        if (!updated) return
 
         // Update in-memory vote counter
         const key = `${code}:${questionIndex}`
@@ -200,7 +250,7 @@ function initQuizSocket(io) {
           io.to(hostSocketId).emit('quiz:stats', {
             votes:         liveVotes[key],
             totalAnswered: liveVotes[key].reduce((s, v) => s + v, 0),
-            totalPlayers:  session.players.length,
+            totalPlayers:  updated.players.length,
           })
         }
 
@@ -232,13 +282,14 @@ function initQuizSocket(io) {
         await session.save()
 
         // Calculate scores and build leaderboard
-        const { correctIndex, votes, leaderboard } = await processReveal(session, quiz)
+        const { correctIndex, votes, leaderboard, pointsMap } = await processReveal(session, quiz)
 
         // Broadcast reveal to everyone in the room
         io.to(code).emit('quiz:result', {
           correctIndex,
           votes,
           leaderboard,
+          pointsMap,    // { [playerId]: pointsAwarded } — each client reads their own entry
           questionIndex: session.currentIndex,
         })
 
@@ -376,12 +427,13 @@ function startQuestionTimer(io, code, session, quiz, timeLimit) {
       freshSession.status = 'revealing'
       await freshSession.save()
 
-      const { correctIndex, votes, leaderboard } = await processReveal(freshSession, quiz)
+      const { correctIndex, votes, leaderboard, pointsMap } = await processReveal(freshSession, quiz)
 
       io.to(code).emit('quiz:result', {
         correctIndex,
         votes,
         leaderboard,
+        pointsMap,
         questionIndex: freshSession.currentIndex,
         autoRevealed:  true,
       })

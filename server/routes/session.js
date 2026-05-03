@@ -35,6 +35,29 @@ router.get('/:roomCode', async (req, res) => {
   }
 })
 
+// GET /api/session/:roomCode/verify-host — confirm the caller owns this session (protected)
+// Used by HostLobby / HostLive on mount to block other logged-in users from viewing the page
+router.get('/:roomCode/verify-host', authMiddleware, async (req, res) => {
+  try {
+    const session = await Session.findOne({
+      roomCode: req.params.roomCode.toUpperCase()
+    }).select('hostId status')
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    if (session.hostId.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'You do not own this session' })
+    }
+
+    res.json({ ok: true, status: session.status })
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+
 // GET /api/session/history — all sessions for this host (protected)
 router.get('/', authMiddleware, async (req, res) => {
   try {

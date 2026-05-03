@@ -36,13 +36,16 @@ const useQuizStore = create((set) => ({
   setPlayers:     (players) => set({ players }),
   setTimer:       (timer) => set({ timer }),
   setMyAnswer:    (myAnswer) => set({ myAnswer }),
-  setMyResult:    (isCorrect, myScore) => set({ isCorrect, myScore }),
+  setMyResult:    (isCorrect, pointsThisRound) => set((state) => ({
+    isCorrect,
+    myScore: state.myScore + (pointsThisRound || 0),
+  })),
   setPlayerId:    (playerId) => set({ playerId }),
   setPlayerName:  (playerName) => set({ playerName }),
   resetSession:   () => set({
     roomCode: null, sessionId: null, status: 'idle',
     currentQuestion: null, votes: [], leaderboard: [],
-    players: [], myAnswer: null, isCorrect: null, timer: null
+    players: [], myAnswer: null, isCorrect: null, timer: null, myScore: 0,
   }),
 }))
 
