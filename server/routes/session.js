@@ -134,4 +134,23 @@ router.get('/:sessionId/results', authMiddleware, async (req, res) => {
   }
 })
 
+// DELETE /api/session/:sessionId — delete a session (protected, host only)
+router.delete('/:sessionId', authMiddleware, async (req, res) => {
+  try {
+    const session = await Session.findOne({
+      _id: req.params.sessionId,
+      hostId: req.user.id
+    })
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found or you do not own it' })
+    }
+
+    await Session.deleteOne({ _id: session._id })
+    res.json({ message: 'Session deleted' })
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 module.exports = router

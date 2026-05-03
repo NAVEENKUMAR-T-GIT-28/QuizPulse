@@ -96,6 +96,9 @@ export default function HostDashboard() {
           <button className="nav-item" onClick={handleCreate}>
             <span className="mat sm">add_circle</span>New Quiz
           </button>
+          <button className="nav-item" onClick={() => navigate('/history')}>
+            <span className="mat sm">history</span>History
+          </button>
           <div style={{ marginTop: 'auto', paddingTop: 12 }}>
             <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={handleLogout}>
               <span className="mat sm">logout</span>Sign out

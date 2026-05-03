@@ -10,6 +10,7 @@ import JoinPage         from './pages/JoinPage'
 import PlayerLobby      from './pages/PlayerLobby'
 import PlayerGame       from './pages/PlayerGame'
 import ResultsPage      from './pages/ResultsPage'
+import HistoryPage      from './pages/HistoryPage'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/lobby/:roomCode"     element={<ProtectedRoute><HostLobby /></ProtectedRoute>} />
         <Route path="/host/:roomCode"      element={<ProtectedRoute><HostLive /></ProtectedRoute>} />
         <Route path="/results/:sessionId"  element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
+        <Route path="/history"             element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
 
         {/* Player routes — no auth */}
         <Route path="/join"                element={<JoinPage />} />

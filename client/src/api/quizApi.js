@@ -73,13 +73,32 @@ export async function getSessionHistory() {
   return data   // { sessions: [...] }
 }
 
+export async function deleteSession(sessionId) {
+  const { data } = await axios.delete(`${BASE}/api/session/${sessionId}`, { headers: authHeader() })
+  return data   // { message: 'Session deleted' }
+}
+
 export async function getSessionResults(sessionId) {
   const { data } = await axios.get(`${BASE}/api/session/${sessionId}/results`, { headers: authHeader() })
   return data   // { session, leaderboard, questionStats }
 }
 
 // ─── Export ────────────────────────────────────────
-export function exportPdfUrl(sessionId) {
-  // Returns the URL — open it in a new tab or use as href
-  return `${BASE}/api/export/${sessionId}`
+export async function exportSessionPdf(sessionId, filename = 'quiz-results.pdf') {
+  const response = await fetch(`${BASE}/api/export/${sessionId}`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error || 'Failed to export PDF')
+  }
+  const blob = await response.blob()
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
