@@ -13,6 +13,8 @@ const roomHosts  = {}   // { "ROOMCODE": socketId }
 const roomTimers = {}   // { "ROOMCODE": timeoutRef }
 const roomIntervals = {} // { "ROOMCODE": intervalRef }
 const lastAnswerTime = {} // { socketId: timestamp } — answer throttle
+const roomEnded = {}  // { "ROOMCODE": true } — set on quiz:end, checked in interval
+const MAX_PLAYERS_PER_ROOM = 100
 
 /**
  * Verify the JWT from socket handshake auth and return the decoded payload,
@@ -64,6 +66,10 @@ function initQuizSocket(io) {
         }
         if (session.status === 'ended') {
           return socket.emit('error', { message: 'This session has already ended' })
+        }
+        
+        if (session.players.length >= MAX_PLAYERS_PER_ROOM) {
+          return socket.emit('error', { message: `This room is full (max ${MAX_PLAYERS_PER_ROOM} players)` })
         }
 
         // Prevent duplicate players (reconnect case) atomically
@@ -244,8 +250,9 @@ function initQuizSocket(io) {
 
         // Validate optionIndex against the actual question
         const quiz = await Quiz.findById(session.quizId)
+        if (!Number.isInteger(questionIndex) || questionIndex < 0) return
         const question = quiz.questions[questionIndex]
-        if (!question || optionIndex < 0 || optionIndex >= question.options.length) return
+        if (!question || !Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= question.options.length) return
 
         // Atomically push the response only if this player hasn't answered this question yet.
         // The compound condition on the $push prevents duplicates without a separate read.
@@ -396,6 +403,7 @@ function initQuizSocket(io) {
         const code = roomCode?.toUpperCase()
         if (roomHosts[code] !== socket.id) return
 
+        roomEnded[code] = true
         clearQuestionTimer(code)
 
         const session = await Session.findOne({ roomCode: code })
@@ -413,7 +421,7 @@ function initQuizSocket(io) {
         })
 
         // Cleanup in-memory stores
-        delete roomHosts[code]
+        cleanupRoom(code, io)
         console.log(`Session ended in room ${code}`)
       } catch (err) {
         console.error('quiz:end error:', err)
@@ -448,11 +456,17 @@ function initQuizSocket(io) {
 
 function startQuestionTimer(io, code, session, quiz, timeLimit) {
   clearQuestionTimer(code)
+  delete roomEnded[code]
 
   let remaining = timeLimit
 
   // Emit a tick every second
   roomIntervals[code] = setInterval(() => {
+    if (roomEnded[code]) {
+      clearInterval(roomIntervals[code])
+      return
+    }
+
     remaining--
     io.to(code).emit('timer:tick', { remaining })
 
@@ -464,6 +478,7 @@ function startQuestionTimer(io, code, session, quiz, timeLimit) {
   // Auto-reveal when time is up
   roomTimers[code] = setTimeout(async () => {
     clearInterval(roomIntervals[code])
+    if (roomEnded[code]) return
 
     try {
       // Reload session to get latest state
@@ -498,6 +513,22 @@ function clearQuestionTimer(code) {
     clearInterval(roomIntervals[code])
     delete roomIntervals[code]
   }
+}
+
+function cleanupRoom(code, io) {
+  roomEnded[code] = true  // block any in-flight interval callbacks
+
+  Object.keys(liveVotes).forEach((key) => {
+    if (key.startsWith(`${code}:`)) delete liveVotes[key]
+  })
+
+  delete roomHosts[code]
+  delete roomEnded[code]  // final cleanup
+
+  Object.keys(lastAnswerTime).forEach((socketId) => {
+    const sock = io.sockets?.sockets?.get(socketId)
+    if (sock?.data?.roomCode === code) delete lastAnswerTime[socketId]
+  })
 }
 
 module.exports = { initQuizSocket }

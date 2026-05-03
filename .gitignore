@@ -1,21 +1,36 @@
-#client
-client/build
-client/.env
-client/node_modules
-client/package-lock.json
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
 
-#server
-server/.env
-server/node_modules
-server/package-lock.json
-server/coverage
-server/seed.js
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Build output
+client/dist/
+client/build/
+
+# Logs
+*.log
+npm-debug.log*
+dev/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Test coverage
+coverage/
 
 #App
 App/
 MyApp/
 
-
 server/services/pdfRenderer.py
 UI/
-dev/
