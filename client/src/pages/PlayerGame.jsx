@@ -60,10 +60,6 @@ export default function PlayerGame() {
       sessionStorage.removeItem('qp_roomCode')
       sessionStorage.removeItem('qp_playerId')
       sessionStorage.removeItem('qp_playerName')
-      // also clear the pq_ keys written by JoinPage
-      sessionStorage.removeItem('pq_roomCode')
-      sessionStorage.removeItem('pq_playerId')
-      sessionStorage.removeItem('pq_playerName')
     }
 
     // ─── NEW: handle the server's response to player:join mid-game ───
@@ -83,8 +79,8 @@ export default function PlayerGame() {
     function onReconnect() {
       // Prefer Zustand (fastest), fall back to sessionStorage (survives reload)
       const state = useQuizStore.getState()
-      const pid  = state.playerId   || sessionStorage.getItem('qp_playerId')   || sessionStorage.getItem('pq_playerId')
-      const name = state.playerName || sessionStorage.getItem('qp_playerName') || sessionStorage.getItem('pq_playerName')
+      const pid  = state.playerId   || sessionStorage.getItem('qp_playerId')
+      const name = state.playerName || sessionStorage.getItem('qp_playerName')
 
       if (pid && name && roomCode) {
         // Restore Zustand if it was wiped
