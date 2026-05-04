@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login, register } from '../api/quizApi'
+import ThemeToggle from '../components/ThemeToggle'
 import { saveAuth } from '../hooks/useAuth'
 
 export default function AuthPage() {
@@ -34,6 +35,7 @@ export default function AuthPage() {
 
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 20, right: 24, zIndex: 10 }}><ThemeToggle /></div>
       {/* Background glow */}
       <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(99,102,241,.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
 

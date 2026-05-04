@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { isLoggedIn } from '../hooks/useAuth'
+import ThemeToggle from '../components/ThemeToggle'
 
 export default function LandingPage() {
   const navigate = useNavigate()
@@ -14,6 +15,7 @@ export default function LandingPage() {
 
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: 20, right: 24, zIndex: 10 }}><ThemeToggle /></div>
       {/* Background glow */}
       <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(99,102,241,.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 40% 40% at 80% 80%, rgba(34,197,94,.06) 0%, transparent 70%)', pointerEvents: 'none' }} />

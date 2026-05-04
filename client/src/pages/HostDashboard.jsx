@@ -1,3 +1,4 @@
+import ThemeToggle from '../components/ThemeToggle'
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getQuizzes, deleteQuiz, createSession, logout } from '../api/quizApi'
@@ -91,6 +92,7 @@ export default function HostDashboard() {
               <span style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</span>
             </div>
           )}
+          <ThemeToggle />
           <button className="btn btn-danger btn-sm" onClick={handleLogout}>
             <span className="mat sm">logout</span>Sign out
           </button>
