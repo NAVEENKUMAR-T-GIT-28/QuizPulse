@@ -126,7 +126,6 @@ export default function HistoryPage() {
         </button>
         <div className="topbar-logo">QuizPulse</div>
         <div className="topbar-sep" />
-        <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>Host Console</span>
         <div className="topbar-right">
           <ThemeToggle />
           {user && (
@@ -137,9 +136,6 @@ export default function HistoryPage() {
               <span style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</span>
             </div>
           )}
-          <button className="btn btn-danger btn-sm" onClick={handleLogout}>
-            <span className="mat sm">logout</span>Sign out
-          </button>
         </div>
       </div>
 

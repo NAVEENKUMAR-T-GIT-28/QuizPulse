@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import socket from '../socket/socket'
 import useQuizStore from '../store/useQuizStore'
@@ -7,10 +7,18 @@ import CountdownTimer from '../components/CountdownTimer'
 import Leaderboard from '../components/Leaderboard'
 import ThemeToggle from '../components/ThemeToggle'
 import { verifyHostSession } from '../api/quizApi'
+import { useActiveSession } from '../context/ActiveSessionContext'
+import { useSessionGuard } from '../hooks/useSessionGuard'
 
 export default function HostLive() {
   const { roomCode } = useParams()
-  const navigate = useNavigate()
+  const navigate     = useNavigate()
+  const { setSession, clearSession } = useActiveSession()
+  const liveRoute = `/host/${roomCode}`
+
+  // Guard — intercepts back-button while session is active
+  useSessionGuard(liveRoute)
+
   const {
     currentQuestion, setQuestion,
     votes, setVotes,
@@ -19,30 +27,45 @@ export default function HostLive() {
     timer, setTimer,
   } = useQuizStore()
 
-  const [correctIndex, setCorrectIndex] = useState(null)
+  const [correctIndex, setCorrectIndex]   = useState(null)
   const [totalAnswered, setTotalAnswered] = useState(0)
-  const [totalPlayers, setTotalPlayers] = useState(0)
-  const [authChecked, setAuthChecked] = useState(false)
+  const [totalPlayers, setTotalPlayers]   = useState(0)
+  const [authChecked, setAuthChecked]     = useState(false)
 
-  // ── Step 1: verify ownership before doing anything else ──────────────────
+  // Reconnecting UI state — shown when socket is down or re-joining
+  const [reconnecting, setReconnecting]   = useState(false)
+  const joinedRef = useRef(false)           // prevent double-join on StrictMode
+
+  // ── Step 1: verify ownership ────────────────────────────────────
   useEffect(() => {
     verifyHostSession(roomCode)
       .then(() => setAuthChecked(true))
       .catch((err) => {
         const status = err?.response?.status
+        clearSession()
         if (status === 403) {
           navigate('/dashboard', { replace: true, state: { error: 'You do not have access to that session.' } })
         } else {
           navigate('/dashboard', { replace: true })
         }
       })
-  }, [roomCode, navigate])
+  }, [roomCode, navigate, clearSession])
 
-  // ── Step 2: socket setup — only runs after auth check passes ─────────────
+  // ── Step 2: socket setup ─────────────────────────────────────────
   useEffect(() => {
     if (!authChecked) return
-    // Connect (safe to call if already connected)
-    if (!socket.connected) socket.connect()
+
+    // Register this as an active host session so GlobalSessionRedirect
+    // and useSessionGuard can protect it.
+    setSession({ role: 'host', roomCode })
+
+    let isMounted = true
+
+    function emitJoin() {
+      if (!isMounted) return
+      setReconnecting(false)
+      socket.emit('host:join', { roomCode })
+    }
 
     function onQuestion(payload) {
       setQuestion(payload)
@@ -50,79 +73,114 @@ export default function HostLive() {
       setCorrectIndex(null)
       setTotalAnswered(0)
     }
+
     function onStats({ votes, totalAnswered, totalPlayers }) {
       setVotes(votes)
       setTotalAnswered(totalAnswered || 0)
       setTotalPlayers(totalPlayers || 0)
     }
+
     function onResult({ correctIndex: ci, votes, leaderboard }) {
       setStatus('revealing')
       setVotes(votes)
       setLeaderboard(leaderboard)
       setCorrectIndex(ci)
     }
+
     function onTick({ remaining }) {
       setTimer(remaining)
     }
+
     function onEnded({ finalLeaderboard, sessionId }) {
+      clearSession()
       setLeaderboard(finalLeaderboard || [])
-      navigate(`/results/${sessionId}`)
-    }
-    function onReconnect() {
-      socket.emit('host:join', { roomCode })
+      navigate(`/results/${sessionId}`, { replace: true })
     }
 
-    // Remove stale listeners first
-    socket.off('quiz:question', onQuestion)
-    socket.off('quiz:stats', onStats)
-    socket.off('quiz:result', onResult)
-    socket.off('timer:tick', onTick)
-    socket.off('quiz:ended', onEnded)
-    socket.off('connect', onReconnect)
+    function onDisconnect() {
+      if (isMounted) setReconnecting(true)
+    }
+
+    function onReconnect() {
+      emitJoin()
+    }
+
+    // Remove stale listeners
+    socket.off('quiz:question',  onQuestion)
+    socket.off('quiz:stats',     onStats)
+    socket.off('quiz:result',    onResult)
+    socket.off('timer:tick',     onTick)
+    socket.off('quiz:ended',     onEnded)
+    socket.off('connect',        onReconnect)
+    socket.off('disconnect',     onDisconnect)
 
     // Register fresh listeners
-    socket.on('quiz:question', onQuestion)
-    socket.on('quiz:stats', onStats)
-    socket.on('quiz:result', onResult)
-    socket.on('timer:tick', onTick)
-    socket.on('quiz:ended', onEnded)
-    socket.on('connect', onReconnect)
+    socket.on('quiz:question',   onQuestion)
+    socket.on('quiz:stats',      onStats)
+    socket.on('quiz:result',     onResult)
+    socket.on('timer:tick',      onTick)
+    socket.on('quiz:ended',      onEnded)
+    socket.on('connect',         onReconnect)
+    socket.on('disconnect',      onDisconnect)
 
-    // Emit host:join to register/re-register with server
-    socket.emit('host:join', { roomCode })
+    // Connect + join
+    if (!socket.connected) {
+      setReconnecting(true)
+      socket.connect()
+      // emitJoin fires via 'connect' listener above
+    } else {
+      emitJoin()
+    }
 
     return () => {
-      socket.off('quiz:question', onQuestion)
-      socket.off('quiz:stats', onStats)
-      socket.off('quiz:result', onResult)
-      socket.off('timer:tick', onTick)
-      socket.off('quiz:ended', onEnded)
-      socket.off('connect', onReconnect)
-      socket.disconnect()
+      isMounted = false
+      socket.off('quiz:question',  onQuestion)
+      socket.off('quiz:stats',     onStats)
+      socket.off('quiz:result',    onResult)
+      socket.off('timer:tick',     onTick)
+      socket.off('quiz:ended',     onEnded)
+      socket.off('connect',        onReconnect)
+      socket.off('disconnect',     onDisconnect)
+      // Do NOT disconnect — session is still live
     }
-  }, [roomCode, authChecked])
+  }, [roomCode, authChecked, setSession, clearSession, navigate,
+      setQuestion, setStatus, setVotes, setLeaderboard, setTimer])
 
-  function handleReveal() {
-    socket.emit('quiz:reveal', { roomCode })
-  }
-
-  function handleNext() {
-    socket.emit('quiz:next', { roomCode })
-  }
-
+  function handleReveal() { socket.emit('quiz:reveal', { roomCode }) }
+  function handleNext()   { socket.emit('quiz:next',   { roomCode }) }
   function handleEnd() {
+    clearSession()
     socket.emit('quiz:end', { roomCode })
   }
 
-  const q = currentQuestion
-  const progress = q ? ((q.index + 1) / q.totalQuestions) * 100 : 0
+  const q            = currentQuestion
+  const progress     = q ? ((q.index + 1) / q.totalQuestions) * 100 : 0
   const responseRate = totalPlayers > 0 ? Math.round((totalAnswered / totalPlayers) * 100) : 0
-  const totalVotes = votes.reduce((s, v) => s + v, 0)
+  const totalVotes   = votes.reduce((s, v) => s + v, 0)
   const correctVotes = correctIndex !== null && votes[correctIndex] ? votes[correctIndex] : 0
-  const accuracy = totalVotes > 0 ? Math.round((correctVotes / totalVotes) * 100) : 0
+  const accuracy     = totalVotes > 0 ? Math.round((correctVotes / totalVotes) * 100) : 0
 
-  // Don't render host UI until ownership is confirmed — prevents flash of content
   if (!authChecked) return null
+
+  // ── Reconnecting overlay ────────────────────────────────────────
+  if (reconnecting) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: '50%',
+          background: 'rgba(99,102,241,.1)', border: '2px solid rgba(99,102,241,.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span className="mat" style={{ fontSize: 28, color: 'var(--indigo-l)', animation: 'spin .9s linear infinite' }}>refresh</span>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>Reconnecting to quiz...</div>
+          <div style={{ fontSize: 14, color: 'var(--text2)' }}>The session is still live. Restoring your connection.</div>
+        </div>
+        <div className="dots"><div className="dot" /><div className="dot" /><div className="dot" /></div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -169,8 +227,6 @@ export default function HostLive() {
             <span className="mat sm">leaderboard</span>Leaderboard
           </button>
           <div className="nav-sep" />
-
-          {/* Mini leaderboard */}
           {leaderboard.length > 0 && (
             <div style={{ padding: '0 4px' }}>
               <div className="section-label" style={{ marginBottom: 8 }}>Top Players</div>
@@ -201,7 +257,6 @@ export default function HostLive() {
             </div>
           ) : (
             <div style={{ maxWidth: 760 }}>
-              {/* Question header */}
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--indigo-l)', marginBottom: 8 }}>
@@ -221,10 +276,8 @@ export default function HostLive() {
                 </div>
               </div>
 
-              {/* Timer bar */}
               <CountdownTimer remaining={timer} timeLimit={q.timeLimit} />
 
-              {/* Stats row */}
               <div className="grid-4" style={{ marginBottom: 28, marginTop: 20, gap: 12 }}>
                 <div className="stat-card" style={{ padding: '14px 16px' }}>
                   <div className="stat-label">Answered</div>
@@ -244,11 +297,9 @@ export default function HostLive() {
                 </div>
               </div>
 
-              {/* Bar chart */}
               <div className="section-label" style={{ marginBottom: 12 }}>Response Distribution</div>
               <LiveBarChart votes={votes} options={q.options} correctIndex={correctIndex} />
 
-              {/* Controls */}
               <div style={{ display: 'flex', gap: 12, marginTop: 28, justifyContent: 'center' }}>
                 {status === 'live' && (
                   <button className="btn btn-primary btn-lg" onClick={handleReveal}>
@@ -269,7 +320,6 @@ export default function HostLive() {
                 )}
               </div>
 
-              {/* Leaderboard after reveal */}
               {status === 'revealing' && leaderboard.length > 0 && (
                 <div style={{ marginTop: 32 }}>
                   <div className="section-label" style={{ marginBottom: 12 }}>Leaderboard</div>

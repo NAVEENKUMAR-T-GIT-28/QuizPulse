@@ -82,8 +82,8 @@ export default function HostDashboard() {
         </button>
         <div className="topbar-logo">QuizPulse</div>
         <div className="topbar-sep" />
-        <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>Host Console</span>
         <div className="topbar-right">
+          <ThemeToggle />
           {user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(99,102,241,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -92,10 +92,6 @@ export default function HostDashboard() {
               <span style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</span>
             </div>
           )}
-          <ThemeToggle />
-          <button className="btn btn-danger btn-sm" onClick={handleLogout}>
-            <span className="mat sm">logout</span>Sign out
-          </button>
         </div>
       </div>
 

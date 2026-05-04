@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import socket from '../socket/socket'
 import useQuizStore from '../store/useQuizStore'
 import ThemeToggle from '../components/ThemeToggle'
+import { useActiveSession } from '../context/ActiveSessionContext'
 
 export default function PlayerLobby() {
   const { roomCode } = useParams()
   const navigate = useNavigate()
+  const { clearSession } = useActiveSession()
   const { playerId: storedPlayerId, playerName: storedPlayerName, setQuestion, setStatus, resetSession } = useQuizStore()
 
   // Fallback to sessionStorage if Zustand store was wiped by a browser refresh
@@ -17,12 +19,7 @@ export default function PlayerLobby() {
 
   function handleExit() {
     socket.emit('player:leave', { roomCode, playerId })
-    
-    // Delay disconnect to ensure 'player:leave' packet flushes to network
-    setTimeout(() => {
-      socket.disconnect()
-    }, 250)
-
+    socket.disconnect()
     sessionStorage.removeItem('qp_roomCode')
     sessionStorage.removeItem('qp_playerId')
     resetSession()

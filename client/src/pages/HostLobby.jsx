@@ -5,6 +5,7 @@ import useQuizStore from '../store/useQuizStore'
 import QRCodeDisplay from '../components/QRCodeDisplay'
 import ThemeToggle from '../components/ThemeToggle'
 import { verifyHostSession, deleteSession } from '../api/quizApi'
+import { useActiveSession } from '../context/ActiveSessionContext'
 
 const AVATAR_COLORS = [
   { bg: 'rgba(99,102,241,.15)', color: 'var(--indigo-l)' },
@@ -23,6 +24,7 @@ export default function HostLobby() {
   const { roomCode } = useParams()
   const navigate = useNavigate()
   const { players, setPlayers } = useQuizStore()
+  const { clearSession } = useActiveSession()
   const [authChecked, setAuthChecked] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sessionId, setSessionId] = useState(null)
@@ -111,7 +113,8 @@ export default function HostLobby() {
 
   async function handleCancelSession() {
     try {
-      socket.emit('host:cancel', { roomCode }) // Broadcast session cancel early
+      clearSession()
+      socket.emit('host:cancel', { roomCode })
       if (sessionId) {
         await deleteSession(sessionId)
       }
@@ -143,7 +146,7 @@ export default function HostLobby() {
             </span>
             Waiting
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => { socket.disconnect(); navigate('/dashboard') }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => { clearSession(); socket.disconnect(); navigate('/dashboard') }}>
             <span className="mat sm">arrow_back</span><span className="topbar-back-text">Back</span>
           </button>
           <button

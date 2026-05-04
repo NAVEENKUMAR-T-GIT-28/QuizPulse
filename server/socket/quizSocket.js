@@ -208,10 +208,6 @@ function initQuizSocket(io) {
         socket.data.isHost = true
         socket.data.hostId = decoded.id
         roomHosts[code] = socket.id
-        if (hostDisconnectTimers[code]) {
-          clearTimeout(hostDisconnectTimers[code])
-          delete hostDisconnectTimers[code]
-        }
 
         socket.emit('host:joined', {
           roomCode: code,
@@ -505,30 +501,6 @@ function initQuizSocket(io) {
         socket.to(code).emit('host:disconnected', {
           message: 'Host disconnected. The session may resume shortly.',
         })
-        // Don't delete roomHosts yet — host may reconnect
-
-        // Start a 60s timer to auto-end the session if host doesn't reconnect
-        hostDisconnectTimers[code] = setTimeout(async () => {
-          try {
-            const session = await Session.findOne({ roomCode: code })
-            if (session && session.status !== 'ended') {
-              session.status = 'ended'
-              session.endedAt = new Date()
-              await session.save()
-
-              const finalLeaderboard = buildLeaderboard(session.players)
-              io.to(code).emit('quiz:ended', {
-                finalLeaderboard,
-                sessionId: session._id,
-              })
-
-              cleanupRoom(io, code)
-              console.log(`Session ${code} auto-ended due to host disconnect timeout`)
-            }
-          } catch (err) {
-            console.error('Auto-end host disconnect error:', err)
-          }
-        }, 60000)
       }
 
       console.log(`Socket disconnected: ${socket.id}`)
@@ -610,10 +582,9 @@ function cleanupRoom(io, code) {
     // 2. Explicitly clear timers (guarded — safe if already cleared)
     if (roomIntervals[code]) clearInterval(roomIntervals[code])
     if (roomTimers[code]) clearTimeout(roomTimers[code])
-    if (hostDisconnectTimers[code]) clearTimeout(hostDisconnectTimers[code])
     delete roomIntervals[code]
     delete roomTimers[code]
-    delete hostDisconnectTimers[code]
+ 
 
     // 3. Clear all liveVotes for this room — O(1)
     delete liveVotes[code]
