@@ -448,6 +448,13 @@ body {
   .qb-sidebar.open { transform: translateX(0); box-shadow: 8px 0 40px rgba(0,0,0,.3); }
 }
 
+/* -- ACCORDION / COLLAPSABLE -- */
+.accordion { border: 1px solid var(--border); border-radius: var(--r); background: var(--bg2); overflow: hidden; margin-bottom: 12px; }
+.accordion-header { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background .15s; user-select: none; }
+.accordion-header:hover { background: var(--bg3); }
+.accordion-header.active { background: rgba(99,102,241,.06); border-bottom: 1px solid var(--border); }
+.accordion-content { padding: 20px; background: var(--bg); animation: fadeUp .2s ease both; }
+
 @media (max-width: 480px) {
   .grid-4 { grid-template-columns: 1fr 1fr; gap: 8px; }
   .stat-card { padding: 12px 12px; }
