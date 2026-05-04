@@ -5,6 +5,7 @@ import useQuizStore from '../store/useQuizStore'
 import LiveBarChart from '../components/LiveBarChart'
 import CountdownTimer from '../components/CountdownTimer'
 import Leaderboard from '../components/Leaderboard'
+import ThemeToggle from '../components/ThemeToggle'
 import { verifyHostSession } from '../api/quizApi'
 
 export default function HostLive() {
@@ -144,6 +145,7 @@ export default function HostLive() {
           </div>
         )}
         <div className="topbar-right">
+          <ThemeToggle />
           {timer !== null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.05)', border: '1px solid var(--border2)', borderRadius: 'var(--r)', padding: '6px 12px' }}>
               <span className="mat sm" style={{ color: 'var(--indigo-l)' }}>timer</span>

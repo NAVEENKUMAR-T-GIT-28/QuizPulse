@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getQuiz, createQuiz, updateQuiz } from '../api/quizApi'
 import { clearAuth, getUser } from '../hooks/useAuth'
+import ThemeToggle from '../components/ThemeToggle'
 
 const LABELS = ['A', 'B', 'C', 'D']
 
@@ -148,6 +149,7 @@ export default function QuizBuilder() {
           <strong style={{ color: 'var(--text)' }}>{id ? 'Edit Quiz' : 'New Quiz'}</strong>
         </span>
         <div className="topbar-right">
+          <ThemeToggle />
           <button
             className="btn btn-primary btn-sm"
             onClick={handleSubmit}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getSessionResults, exportSessionPdf } from '../api/quizApi'
 import Leaderboard from '../components/Leaderboard'
+import ThemeToggle from '../components/ThemeToggle'
 
 export default function ResultsPage() {
   const { sessionId } = useParams()
@@ -64,6 +65,7 @@ export default function ResultsPage() {
           Dashboard / <strong style={{ color: 'var(--text)' }}>Results</strong>
         </span>
         <div className="topbar-right">
+          <ThemeToggle />
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard')}>
             <span className="mat sm">arrow_back</span>Dashboard
           </button>

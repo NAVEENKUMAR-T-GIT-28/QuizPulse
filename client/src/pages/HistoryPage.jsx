@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSessionHistory, getSessionResults, exportSessionPdf, deleteSession } from '../api/quizApi'
 import { clearAuth, getUser } from '../hooks/useAuth'
+import ThemeToggle from '../components/ThemeToggle'
 
 export default function HistoryPage() {
   const navigate = useNavigate()
@@ -127,6 +128,7 @@ export default function HistoryPage() {
         <div className="topbar-sep" />
         <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>Host Console</span>
         <div className="topbar-right">
+          <ThemeToggle />
           {user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(99,102,241,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -1,18 +1,17 @@
-const jwt          = require('jsonwebtoken')
+const jwt = require('jsonwebtoken')
 const sanitizeHtml = require('sanitize-html')
-const Session      = require('../models/Session')
-const Quiz         = require('../models/Quiz')
+const Session = require('../models/Session')
+const Quiz = require('../models/Quiz')
 const { processReveal, buildLeaderboard, getVoteStats } = require('../services/quizService')
 
 /**
  * In-memory stores for the duration of a live session
  * These reset on server restart — that's fine, session data is in MongoDB
  */
-const liveVotes  = {}   // { "ROOMCODE": { qIndex: [0, 0, 0, 0] } }
-const roomHosts  = {}   // { "ROOMCODE": socketId }
+const liveVotes = {}   // { "ROOMCODE": { qIndex: [0, 0, 0, 0] } }
+const roomHosts = {}   // { "ROOMCODE": socketId }
 const roomTimers = {}   // { "ROOMCODE": timeoutRef }
 const roomIntervals = {} // { "ROOMCODE": intervalRef }
-const hostDisconnectTimers = {} // { "ROOMCODE": timeoutRef }
 const lastAnswerTime = {} // { socketId: timestamp } — answer throttle
 const roomEnded = {}  // { "ROOMCODE": true } — set on quiz:end, checked in interval
 const MAX_PLAYERS_PER_ROOM = 100
@@ -77,7 +76,7 @@ function initQuizSocket(io) {
         if (session.status === 'ended') {
           return socket.emit('error', { message: 'This session has already ended' })
         }
-        
+
         if (session.players.length >= MAX_PLAYERS_PER_ROOM) {
           return socket.emit('error', { message: `This room is full (max ${MAX_PLAYERS_PER_ROOM} players)` })
         }
@@ -93,15 +92,15 @@ function initQuizSocket(io) {
         if (!updatedSession) {
           updatedSession = await Session.findOne({ roomCode: code })
         }
-        
+
         // We use updatedSession for the rest of the logic
         session = updatedSession
 
         // Join the socket room
         socket.join(code)
-        socket.data.roomCode  = code
-        socket.data.playerId  = playerId
-        socket.data.isHost    = false
+        socket.data.roomCode = code
+        socket.data.playerId = playerId
+        socket.data.isHost = false
 
         const quiz = await Quiz.findById(session.quizId)
 
@@ -113,10 +112,10 @@ function initQuizSocket(io) {
           if (q) {
             const timeLimit = quiz.timerMode === 'quiz' ? quiz.quizTimeLimit : q.timeLimit
             currentQuestion = {
-              index:          session.currentIndex,
+              index: session.currentIndex,
               totalQuestions: quiz.questions.length,
-              text:           q.text,
-              options:        q.options,
+              text: q.text,
+              options: q.options,
               timeLimit,
             }
           }
@@ -124,9 +123,9 @@ function initQuizSocket(io) {
 
         // Tell the player they're in
         socket.emit('player:joined', {
-          roomCode:        code,
-          quizTitle:       quiz?.title || '',
-          status:          session.status,
+          roomCode: code,
+          quizTitle: quiz?.title || '',
+          status: session.status,
           currentQuestion, // null if waiting/ended, populated if live/revealing
         })
 
@@ -134,7 +133,7 @@ function initQuizSocket(io) {
         const hostSocketId = roomHosts[code]
         if (hostSocketId) {
           io.to(hostSocketId).emit('room:players', {
-            count:   session.players.length,
+            count: session.players.length,
             players: session.players.map((p) => ({ name: p.name, id: p.playerId })),
           })
         }
@@ -154,6 +153,8 @@ function initQuizSocket(io) {
         if (!roomCode || !playerId) return
         const code = roomCode.toUpperCase().trim()
         
+        socket.leave(code)
+
         // Remove player from session
         const session = await Session.findOneAndUpdate(
           { roomCode: code },
@@ -167,7 +168,7 @@ function initQuizSocket(io) {
           const hostSocketId = roomHosts[code]
           if (hostSocketId) {
             io.to(hostSocketId).emit('room:players', {
-              count:   session.players.length,
+              count: session.players.length,
               players: session.players.map((p) => ({ name: p.name, id: p.playerId })),
             })
           }
@@ -203,11 +204,10 @@ function initQuizSocket(io) {
         }
 
         socket.join(code)
-        socket.data.roomCode  = code
-        socket.data.isHost    = true
-        socket.data.hostId    = decoded.id
-        roomHosts[code]       = socket.id
-
+        socket.data.roomCode = code
+        socket.data.isHost = true
+        socket.data.hostId = decoded.id
+        roomHosts[code] = socket.id
         if (hostDisconnectTimers[code]) {
           clearTimeout(hostDisconnectTimers[code])
           delete hostDisconnectTimers[code]
@@ -215,8 +215,8 @@ function initQuizSocket(io) {
 
         socket.emit('host:joined', {
           roomCode: code,
-          status:   session.status,
-          players:  session.players.map((p) => ({ name: p.name, id: p.playerId })),
+          status: session.status,
+          players: session.players.map((p) => ({ name: p.name, id: p.playerId })),
         })
 
         console.log(`Host joined room ${code}`)
@@ -243,9 +243,9 @@ function initQuizSocket(io) {
         }
 
         // Update session state
-        session.status       = 'live'
+        session.status = 'live'
         session.currentIndex = 0
-        session.startedAt    = new Date()
+        session.startedAt = new Date()
         session.questionOpenedAt = new Date()
         await session.save()
 
@@ -258,10 +258,10 @@ function initQuizSocket(io) {
 
         // Broadcast first question to players (no correctIndex!)
         const questionPayload = {
-          index:          0,
+          index: 0,
           totalQuestions: quiz.questions.length,
-          text:           q.text,
-          options:        q.options,
+          text: q.text,
+          options: q.options,
           timeLimit,
         }
 
@@ -319,9 +319,9 @@ function initQuizSocket(io) {
                 playerId,
                 questionIndex,
                 optionIndex,
-                isCorrect:     false,  // updated at reveal
+                isCorrect: false,  // updated at reveal
                 pointsAwarded: 0,      // updated at reveal
-                answeredAt:    new Date(),
+                answeredAt: new Date(),
               }
             }
           },
@@ -332,7 +332,7 @@ function initQuizSocket(io) {
         if (!updated) return
 
         // Update in-memory vote counter
-        if (!liveVotes[code])                liveVotes[code] = {}
+        if (!liveVotes[code]) liveVotes[code] = {}
         if (!liveVotes[code][questionIndex]) liveVotes[code][questionIndex] = new Array(question.options.length).fill(0)
         liveVotes[code][questionIndex][optionIndex]++
 
@@ -342,7 +342,7 @@ function initQuizSocket(io) {
           io.to(hostSocketId).emit('quiz:stats', {
             votes,
             totalAnswered: votes.reduce((s, v) => s + v, 0),
-            totalPlayers:  updated.players.length,
+            totalPlayers: updated.players.length,
           })
         }
 
@@ -411,8 +411,8 @@ function initQuizSocket(io) {
         }
 
         // Advance to next question
-        session.currentIndex     = nextIndex
-        session.status           = 'live'
+        session.currentIndex = nextIndex
+        session.status = 'live'
         session.questionOpenedAt = new Date()
         await session.save()
 
@@ -424,10 +424,10 @@ function initQuizSocket(io) {
         const timeLimit = quiz.timerMode === 'quiz' ? quiz.quizTimeLimit : q.timeLimit
 
         const questionPayload = {
-          index:          nextIndex,
+          index: nextIndex,
           totalQuestions: quiz.questions.length,
-          text:           q.text,
-          options:        q.options,
+          text: q.text,
+          options: q.options,
           timeLimit,
         }
 
@@ -456,7 +456,7 @@ function initQuizSocket(io) {
         const session = await Session.findOne({ roomCode: code })
         if (!session) return
 
-        session.status  = 'ended'
+        session.status = 'ended'
         session.endedAt = new Date()
         await session.save()
 
@@ -582,7 +582,7 @@ function startQuestionTimer(io, code, session, quiz, timeLimit) {
         leaderboard,
         pointsMap,
         questionIndex: freshSession.currentIndex,
-        autoRevealed:  true,
+        autoRevealed: true,
       })
     } catch (err) {
       console.error('Auto-reveal error:', err)
@@ -609,7 +609,7 @@ function cleanupRoom(io, code) {
 
     // 2. Explicitly clear timers (guarded — safe if already cleared)
     if (roomIntervals[code]) clearInterval(roomIntervals[code])
-    if (roomTimers[code])    clearTimeout(roomTimers[code])
+    if (roomTimers[code]) clearTimeout(roomTimers[code])
     if (hostDisconnectTimers[code]) clearTimeout(hostDisconnectTimers[code])
     delete roomIntervals[code]
     delete roomTimers[code]

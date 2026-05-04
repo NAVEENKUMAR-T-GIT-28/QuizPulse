@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import socket from '../socket/socket'
 import useQuizStore from '../store/useQuizStore'
+import ThemeToggle from '../components/ThemeToggle'
 
 export default function PlayerLobby() {
   const { roomCode } = useParams()
@@ -16,7 +17,12 @@ export default function PlayerLobby() {
 
   function handleExit() {
     socket.emit('player:leave', { roomCode, playerId })
-    socket.disconnect()
+    
+    // Delay disconnect to ensure 'player:leave' packet flushes to network
+    setTimeout(() => {
+      socket.disconnect()
+    }, 250)
+
     sessionStorage.removeItem('qp_roomCode')
     sessionStorage.removeItem('qp_playerId')
     resetSession()
@@ -89,6 +95,7 @@ export default function PlayerLobby() {
 
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 20, right: 24, zIndex: 10 }}><ThemeToggle /></div>
       {/* Background */}
       <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(99,102,241,.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
 

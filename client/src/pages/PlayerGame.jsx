@@ -5,6 +5,7 @@ import useQuizStore from '../store/useQuizStore'
 import CountdownTimer from '../components/CountdownTimer'
 import QuestionCard from '../components/QuestionCard'
 import Leaderboard from '../components/Leaderboard'
+import ThemeToggle from '../components/ThemeToggle'
 
 export default function PlayerGame() {
   const { roomCode } = useParams()
@@ -183,6 +184,7 @@ export default function PlayerGame() {
           </>
         )}
         <div className="topbar-right">
+          <ThemeToggle />
           {timer !== null && status === 'live' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.05)', border: '1px solid var(--border2)', borderRadius: 'var(--r)', padding: '6px 12px' }}>
               <span className="mat sm" style={{ color: timer <= 5 ? 'var(--red)' : 'var(--indigo-l)' }}>timer</span>

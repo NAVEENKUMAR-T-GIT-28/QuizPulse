@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import socket from '../socket/socket'
 import useQuizStore from '../store/useQuizStore'
 import QRCodeDisplay from '../components/QRCodeDisplay'
+import ThemeToggle from '../components/ThemeToggle'
 import { verifyHostSession, deleteSession } from '../api/quizApi'
 
 const AVATAR_COLORS = [
@@ -135,6 +136,7 @@ export default function HostLobby() {
         <div className="topbar-sep" />
         <span style={{ fontSize: 13, color: 'var(--text2)' }}>Lobby</span>
         <div className="topbar-right">
+          <ThemeToggle />
           <div className="badge badge-indigo">
             <span className="dots" style={{ zoom: 0.7 }}>
               <div className="dot" /><div className="dot" /><div className="dot" />
