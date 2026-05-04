@@ -1,11 +1,24 @@
-const express = require('express')
-const jwt = require('jsonwebtoken')
-const User = require('../models/User')
+// server/routes/auth.js
+
+const express        = require('express')
+const jwt            = require('jsonwebtoken')
+const User           = require('../models/User')
 const authMiddleware = require('../middleware/authMiddleware')
 
 const router = express.Router()
 
-// Helper to sign a JWT
+// ─── Cookie config ────────────────────────────────────────────
+// Shared options for every Set-Cookie call.
+// Adjust maxAge to match your JWT expiry (7 days = 604800000 ms).
+const COOKIE_OPTIONS = {
+  httpOnly:  true,                      // JS cannot read this cookie
+  sameSite:  'strict',                  // no cross-site sending
+  secure:    process.env.NODE_ENV === 'production',  // HTTPS-only in prod
+  maxAge:    7 * 24 * 60 * 60 * 1000,  // 7 days in ms — matches JWT expiry
+  path:      '/',
+}
+
+// ─── Helper ───────────────────────────────────────────────────
 const signToken = (user) =>
   jwt.sign(
     { id: user._id, name: user.name, email: user.email },
@@ -27,11 +40,14 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'Email already in use' })
     }
 
-    const user = await User.create({ name, email, password })
+    const user  = await User.create({ name, email, password })
     const token = signToken(user)
 
+    // Set token in httpOnly cookie — never in response body
+    res.cookie('token', token, COOKIE_OPTIONS)
+
+    // Return only the safe user object — no token
     res.status(201).json({
-      token,
       user: { id: user._id, name: user.name, email: user.email }
     })
   } catch (err) {
@@ -64,8 +80,11 @@ router.post('/login', async (req, res) => {
 
     const token = signToken(user)
 
+    // Set token in httpOnly cookie — never in response body
+    res.cookie('token', token, COOKIE_OPTIONS)
+
+    // Return only the safe user object — no token
     res.json({
-      token,
       user: { id: user._id, name: user.name, email: user.email }
     })
   } catch (err) {
@@ -73,7 +92,14 @@ router.post('/login', async (req, res) => {
   }
 })
 
-// GET /api/auth/me — verify token and return profile
+// POST /api/auth/logout  ← NEW endpoint
+router.post('/logout', (req, res) => {
+  // Overwrite the cookie with an expired one — browser deletes it immediately
+  res.cookie('token', '', { ...COOKIE_OPTIONS, maxAge: 0 })
+  res.json({ message: 'Logged out' })
+})
+
+// GET /api/auth/me — verify cookie and return profile
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password')

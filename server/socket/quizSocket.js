@@ -16,15 +16,24 @@ const lastAnswerTime = {} // { socketId: timestamp } — answer throttle
 const roomEnded = {}  // { "ROOMCODE": true } — set on quiz:end, checked in interval
 const MAX_PLAYERS_PER_ROOM = 100
 
+const cookie = require('cookie')   // built into Node — no install needed
+
 /**
  * Verify the JWT from socket handshake auth and return the decoded payload,
  * or null if missing/invalid.
  */
 function verifySocketToken(socket) {
   try {
-    const token = socket.handshake.auth?.token
-    if (!token) return null
-    return jwt.verify(token, process.env.JWT_SECRET)
+    // 1. Check handshake.auth first (existing behaviour — players send null here)
+    const authToken = socket.handshake.auth?.token
+    if (authToken) return jwt.verify(authToken, process.env.JWT_SECRET)
+
+    // 2. Parse the cookie header (new behaviour — hosts after migration)
+    const raw = socket.handshake.headers?.cookie || ''
+    const cookies = cookie.parse(raw)
+    if (!cookies.token) return null
+
+    return jwt.verify(cookies.token, process.env.JWT_SECRET)
   } catch {
     return null
   }

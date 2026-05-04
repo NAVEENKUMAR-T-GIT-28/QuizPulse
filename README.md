@@ -391,6 +391,10 @@ quiz:end          { roomCode }
                   → sets session status to 'ended'
                   → broadcasts quiz:ended to all
                   → saves final state to MongoDB
+
+host:cancel       { roomCode }
+                  → clears in-memory state (timers, votes)
+                  → broadcasts session_canceled to all players
 ```
 
 ### Player emits → Server handles
@@ -399,6 +403,10 @@ quiz:end          { roomCode }
 player:join       { roomCode, playerName, playerId }
                   → validates roomCode exists and status is 'waiting'
                   → adds player to session.players
+                  → emits room:players to host with updated list
+
+player:leave      { roomCode, playerId }
+                  → removes player from session.players in DB
                   → emits room:players to host with updated list
 
 player:answer     { roomCode, questionIndex, optionIndex, playerId }
@@ -433,6 +441,9 @@ quiz:ended        → everyone in room
 
 timer:tick        → everyone in room (every second)
                   { remaining: 24 }
+
+session_canceled  → all players in room (when host cancels session)
+                  (no payload) triggers player cleanup and redirect
 ```
 
 ---

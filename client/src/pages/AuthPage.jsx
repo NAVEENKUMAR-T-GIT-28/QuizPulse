@@ -23,7 +23,7 @@ export default function AuthPage() {
       } else {
         data = await register(name, email, password)
       }
-      saveAuth(data.token, data.user)
+      saveAuth(data.user)
       navigate('/dashboard')
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong')

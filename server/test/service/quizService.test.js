@@ -1,4 +1,4 @@
-const { calculatePoints, buildLeaderboard, getVoteStats } = require('./quizService')
+const { calculatePoints, buildLeaderboard, getVoteStats } = require('../../services/quizService')
 
 describe('calculatePoints', () => {
   test('returns 0 for wrong answer', () => {

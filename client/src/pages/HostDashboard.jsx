@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getQuizzes, deleteQuiz, createSession } from '../api/quizApi'
 import { clearAuth, getUser } from '../hooks/useAuth'
+import { logout } from '../api/quizApi'
 
 export default function HostDashboard() {
   const navigate = useNavigate()
@@ -55,8 +56,13 @@ export default function HostDashboard() {
     }
   }
 
-  function handleLogout() {
-    clearAuth()
+  async function handleLogout() {
+    try {
+      await logout()      // tells server to clear the httpOnly cookie
+    } catch {
+      // ignore network errors — clear local state regardless
+    }
+    clearAuth()           // clears the user object from localStorage
     navigate('/')
   }
 

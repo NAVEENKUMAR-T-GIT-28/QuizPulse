@@ -6,6 +6,7 @@ const { Server } = require('socket.io')
 const mongoose   = require('mongoose')
 const cors       = require('cors')
 const rateLimit  = require('express-rate-limit')
+const cookieParser = require('cookie-parser')  
 
 const authRoutes    = require('./routes/auth')
 const quizRoutes    = require('./routes/quiz')
@@ -24,9 +25,11 @@ const allowedOrigins = process.env.CLIENT_URL
 // ─────────────────────────────────────────────
 // Rate limiters
 // ─────────────────────────────────────────────
+const isTest = process.env.NODE_ENV === 'test'
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,   // 15 minutes
-  max: 10,
+  max: isTest ? 1000 : 10,
   message: { error: 'Too many attempts. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -34,7 +37,7 @@ const authLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: isTest ? 1000 : 200,
   message: { error: 'Too many requests. Slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -47,6 +50,7 @@ const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 })
 
@@ -57,9 +61,11 @@ initQuizSocket(io)
 // ─────────────────────────────────────────────
 app.use(cors({
   origin: allowedOrigins,
+  credentials: true,
 }))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
+app.use(cookieParser()) 
 
 // ─────────────────────────────────────────────
 // Routes (with rate limiters)
@@ -90,15 +96,24 @@ app.use((err, req, res, next) => {
 // ─────────────────────────────────────────────
 const PORT = process.env.PORT || 5000
 
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('MongoDB connected')
-    server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`)
+
+// Export `app` so test files can import it without starting a listener.
+// The server only listens when this file is the entry point (not required by a test).
+
+
+module.exports = app
+
+if (require.main === module) {
+  mongoose
+    .connect(process.env.MONGODB_URI)
+    .then(() => {
+      console.log('MongoDB connected')
+      server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`)
+      })
     })
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err)
-    process.exit(1)
-  })
+    .catch((err) => {
+      console.error('MongoDB connection error:', err)
+      process.exit(1)
+    })
+}
