@@ -129,7 +129,7 @@ export default function HostLobby() {
   if (!authChecked) return null
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Topbar */}
       <div className="topbar">
         <button className="hamburger" onClick={() => setSidebarOpen(true)}>

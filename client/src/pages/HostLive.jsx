@@ -190,7 +190,7 @@ export default function HostLive() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Topbar */}
       <div className="topbar">
         <div className="topbar-logo">QuizPulse</div>

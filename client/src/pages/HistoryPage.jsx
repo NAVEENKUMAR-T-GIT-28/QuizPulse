@@ -118,7 +118,7 @@ export default function HistoryPage() {
   const totalPlayers = sessions.reduce((acc, s) => acc + s.playerCount, 0)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Topbar */}
       <div className="topbar">
         <button className="hamburger" onClick={() => setSidebarOpen(true)}>
