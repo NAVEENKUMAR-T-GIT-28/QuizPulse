@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { getQuizzes, deleteQuiz, createSession } from '../api/quizApi'
+import { getQuizzes, deleteQuiz, createSession, logout } from '../api/quizApi'
 import { clearAuth, getUser } from '../hooks/useAuth'
-import { logout } from '../api/quizApi'
 
 export default function HostDashboard() {
   const navigate = useNavigate()

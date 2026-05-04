@@ -110,10 +110,10 @@ export default function HostLobby() {
 
   async function handleCancelSession() {
     try {
+      socket.emit('host:cancel', { roomCode }) // Broadcast session cancel early
       if (sessionId) {
         await deleteSession(sessionId)
       }
-      socket.emit('host:cancel', { roomCode }) // Broadcast session cancel
       socket.disconnect()
       navigate('/dashboard')
     } catch (err) {

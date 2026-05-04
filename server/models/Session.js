@@ -57,4 +57,9 @@ const SessionSchema = new mongoose.Schema({
   createdAt:     { type: Date, default: Date.now }
 })
 
+SessionSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 90 * 24 * 60 * 60 }  // 90 days
+)
+
 module.exports = mongoose.model('Session', SessionSchema)

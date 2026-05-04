@@ -1,12 +1,9 @@
 // server/test/routes/auth.test.js
 
 const request = require('supertest')
-const app     = require('../../server')   // see note below *
-const db      = require('../helpers/db')
-
-// * server.js currently calls mongoose.connect() and server.listen() at module
-//   load time. Refactor the bottom of server.js to export `app` and connect
-//   only when not in test mode (see the refactor note after this block).
+// server.js exports `app` without starting a listener — safe to import in tests
+const app = require('../../server')
+const db = require('../helpers/db')
 
 beforeAll(() => db.connect())
 afterAll(() => db.disconnect())

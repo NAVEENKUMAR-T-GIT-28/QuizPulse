@@ -38,7 +38,7 @@ function waitFor(socket, event, timeoutMs = 3000) {
 // Helper — seed a quiz + session in the test DB
 async function seedSession(overrides = {}) {
   const user = await User.create({
-    name: 'Host', email: 'host@test.com', password: 'hashed'
+    name: 'Host', email: 'host@test.com', password: 'hashed123'
   })
   const quiz = await Quiz.create({
     hostId: user._id,
