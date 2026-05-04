@@ -104,12 +104,14 @@ router.post('/:id/session', async (req, res) => {
 
     // Generate a unique room code
     let roomCode
-    let attempts = 0
-    do {
-      roomCode = generateRoomCode()
-      attempts++
-      if (attempts > 10) throw new Error('Could not generate unique room code')
-    } while (await Session.findOne({ roomCode }))
+    for (let attempts = 0; attempts < 10; attempts++) {
+      const candidate = generateRoomCode()
+      const exists = await Session.findOne({ roomCode: candidate }).lean()
+      if (!exists) { roomCode = candidate; break }
+    }
+    if (!roomCode) {
+      return res.status(503).json({ error: 'Could not allocate a room code. Please try again.' })
+    }
 
     const session = await Session.create({
       quizId: quiz._id,

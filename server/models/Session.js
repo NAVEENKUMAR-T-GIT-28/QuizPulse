@@ -29,7 +29,8 @@ const SessionSchema = new mongoose.Schema({
   hostId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: true,
+    index: true
   },
   roomCode: {
     type: String,
