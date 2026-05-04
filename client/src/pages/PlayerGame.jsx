@@ -6,6 +6,7 @@ import CountdownTimer from '../components/CountdownTimer'
 import QuestionCard from '../components/QuestionCard'
 import Leaderboard from '../components/Leaderboard'
 import ThemeToggle from '../components/ThemeToggle'
+import { clearActiveSession } from '../context/ActiveSessionContext'
 
 export default function PlayerGame() {
   const { roomCode } = useParams()
@@ -56,11 +57,12 @@ export default function PlayerGame() {
     }
 
     function onEnded({ finalLeaderboard }) {
+      clearActiveSession()
       setLeaderboard(finalLeaderboard || [])
       setStatus('ended')
-      sessionStorage.removeItem('qp_roomCode')
-      sessionStorage.removeItem('qp_playerId')
-      sessionStorage.removeItem('qp_playerName')
+      localStorage.removeItem('qp_roomCode')
+      localStorage.removeItem('qp_playerId')
+      localStorage.removeItem('qp_playerName')
     }
 
     // ─── NEW: handle the server's response to player:join mid-game ───
@@ -76,12 +78,12 @@ export default function PlayerGame() {
       }
     }
 
-    // ─── FIXED: read from sessionStorage, not Zustand (which is wiped on reload) ───
+    // ─── Read from localStorage (survives tab close) as fallback to Zustand ───
     function onReconnect() {
       // Prefer Zustand (fastest), fall back to sessionStorage (survives reload)
       const state = useQuizStore.getState()
-      const pid  = state.playerId   || sessionStorage.getItem('qp_playerId')
-      const name = state.playerName || sessionStorage.getItem('qp_playerName')
+      const pid  = state.playerId   || localStorage.getItem('qp_playerId')
+      const name = state.playerName || localStorage.getItem('qp_playerName')
 
       if (pid && name && roomCode) {
         // Restore Zustand if it was wiped

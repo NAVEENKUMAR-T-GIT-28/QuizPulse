@@ -9,6 +9,29 @@ const router = express.Router()
 // 1. Exact paths first — no route params
 // ─────────────────────────────────────────────
 
+// GET /api/session/mine — returns the host's current active (non-ended) session, if any (protected)
+// Used by useSessionGuard on fresh tab load to redirect host back into their live session.
+router.get('/mine', authMiddleware, async (req, res) => {
+  try {
+    const session = await Session.findOne({
+      hostId: req.user.id,
+      status: { $in: ['waiting', 'live', 'revealing'] },
+    }).select('roomCode status _id').sort({ createdAt: -1 })
+
+    if (!session) return res.json({ session: null })
+
+    res.json({
+      session: {
+        roomCode:  session.roomCode,
+        status:    session.status,
+        sessionId: session._id,
+      },
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 // GET /api/session/history — all sessions for this host (protected)
 router.get('/history', authMiddleware, async (req, res) => {
   try {

@@ -209,10 +209,28 @@ function initQuizSocket(io) {
         socket.data.hostId = decoded.id
         roomHosts[code] = socket.id
 
+        const quiz = await Quiz.findById(session.quizId)
+
+        let currentQuestion = null
+        if ((session.status === 'live' || session.status === 'revealing') && quiz) {
+          const q = quiz.questions[session.currentIndex]
+          if (q) {
+            const timeLimit = resolveTimeLimit(quiz, session.currentIndex)
+            currentQuestion = {
+              index: session.currentIndex,
+              totalQuestions: quiz.questions.length,
+              text: q.text,
+              options: q.options,
+              timeLimit,
+            }
+          }
+        }
+
         socket.emit('host:joined', {
           roomCode: code,
           status: session.status,
           players: session.players.map((p) => ({ name: p.name, id: p.playerId })),
+          currentQuestion,
         })
 
         console.log(`Host joined room ${code}`)

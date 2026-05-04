@@ -7,17 +7,15 @@ import CountdownTimer from '../components/CountdownTimer'
 import Leaderboard from '../components/Leaderboard'
 import ThemeToggle from '../components/ThemeToggle'
 import { verifyHostSession } from '../api/quizApi'
-import { useActiveSession } from '../context/ActiveSessionContext'
-import { useSessionGuard } from '../hooks/useSessionGuard'
+import { setActiveSession, clearActiveSession } from '../context/ActiveSessionContext'
 
 export default function HostLive() {
   const { roomCode } = useParams()
   const navigate     = useNavigate()
-  const { setSession, clearSession } = useActiveSession()
+  
   const liveRoute = `/host/${roomCode}`
 
   // Guard — intercepts back-button while session is active
-  useSessionGuard(liveRoute)
 
   const {
     currentQuestion, setQuestion,
@@ -42,22 +40,21 @@ export default function HostLive() {
       .then(() => setAuthChecked(true))
       .catch((err) => {
         const status = err?.response?.status
-        clearSession()
+        clearActiveSession()
         if (status === 403) {
           navigate('/dashboard', { replace: true, state: { error: 'You do not have access to that session.' } })
         } else {
           navigate('/dashboard', { replace: true })
         }
       })
-  }, [roomCode, navigate, clearSession])
+  }, [roomCode, navigate])
 
   // ── Step 2: socket setup ─────────────────────────────────────────
   useEffect(() => {
     if (!authChecked) return
 
     // Register this as an active host session so GlobalSessionRedirect
-    // and useSessionGuard can protect it.
-    setSession({ role: 'host', roomCode })
+    setActiveSession({ role: 'host', roomCode })
 
     let isMounted = true
 
@@ -65,6 +62,13 @@ export default function HostLive() {
       if (!isMounted) return
       setReconnecting(false)
       socket.emit('host:join', { roomCode })
+    }
+
+    function onHostJoined({ status: sessionStatus, currentQuestion: cq }) {
+      if (cq && (sessionStatus === 'live' || sessionStatus === 'revealing')) {
+        setQuestion(cq)
+        setStatus(sessionStatus)
+      }
     }
 
     function onQuestion(payload) {
@@ -92,7 +96,7 @@ export default function HostLive() {
     }
 
     function onEnded({ finalLeaderboard, sessionId }) {
-      clearSession()
+      clearActiveSession()
       setLeaderboard(finalLeaderboard || [])
       navigate(`/results/${sessionId}`, { replace: true })
     }
@@ -106,6 +110,7 @@ export default function HostLive() {
     }
 
     // Remove stale listeners
+    socket.off('host:joined',    onHostJoined)
     socket.off('quiz:question',  onQuestion)
     socket.off('quiz:stats',     onStats)
     socket.off('quiz:result',    onResult)
@@ -115,6 +120,7 @@ export default function HostLive() {
     socket.off('disconnect',     onDisconnect)
 
     // Register fresh listeners
+    socket.on('host:joined',     onHostJoined)
     socket.on('quiz:question',   onQuestion)
     socket.on('quiz:stats',      onStats)
     socket.on('quiz:result',     onResult)
@@ -134,6 +140,7 @@ export default function HostLive() {
 
     return () => {
       isMounted = false
+      socket.off('host:joined',    onHostJoined)
       socket.off('quiz:question',  onQuestion)
       socket.off('quiz:stats',     onStats)
       socket.off('quiz:result',    onResult)
@@ -143,13 +150,13 @@ export default function HostLive() {
       socket.off('disconnect',     onDisconnect)
       // Do NOT disconnect — session is still live
     }
-  }, [roomCode, authChecked, setSession, clearSession, navigate,
+  }, [roomCode, authChecked, navigate,
       setQuestion, setStatus, setVotes, setLeaderboard, setTimer])
 
   function handleReveal() { socket.emit('quiz:reveal', { roomCode }) }
   function handleNext()   { socket.emit('quiz:next',   { roomCode }) }
   function handleEnd() {
-    clearSession()
+    clearActiveSession()
     socket.emit('quiz:end', { roomCode })
   }
 

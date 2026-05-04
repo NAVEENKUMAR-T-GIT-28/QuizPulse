@@ -3,25 +3,26 @@ import { useParams, useNavigate } from 'react-router-dom'
 import socket from '../socket/socket'
 import useQuizStore from '../store/useQuizStore'
 import ThemeToggle from '../components/ThemeToggle'
-import { useActiveSession } from '../context/ActiveSessionContext'
+import { setActiveSession, clearActiveSession } from '../context/ActiveSessionContext'
 
 export default function PlayerLobby() {
   const { roomCode } = useParams()
   const navigate = useNavigate()
-  const { clearSession } = useActiveSession()
+  
   const { playerId: storedPlayerId, playerName: storedPlayerName, setQuestion, setStatus, resetSession } = useQuizStore()
 
-  // Fallback to sessionStorage if Zustand store was wiped by a browser refresh
-  const playerId   = storedPlayerId   || sessionStorage.getItem('qp_playerId')
-  const playerName = storedPlayerName || sessionStorage.getItem('qp_playerName')
+  // Fallback to localStorage if Zustand store was wiped by a browser refresh
+  const playerId   = storedPlayerId   || localStorage.getItem('qp_playerId')
+  const playerName = storedPlayerName || localStorage.getItem('qp_playerName')
   const [quizTitle, setQuizTitle] = useState('')
   const [showCanceledModal, setShowCanceledModal] = useState(false)
 
   function handleExit() {
+    clearActiveSession()
     socket.emit('player:leave', { roomCode, playerId })
     socket.disconnect()
-    sessionStorage.removeItem('qp_roomCode')
-    sessionStorage.removeItem('qp_playerId')
+    localStorage.removeItem('qp_roomCode')
+    localStorage.removeItem('qp_playerId')
     resetSession()
     navigate('/join')
   }
@@ -33,10 +34,11 @@ export default function PlayerLobby() {
 
     function onPlayerJoined({ quizTitle: title, status }) {
       setQuizTitle(title || '')
-      // Persist for reconnection
-      sessionStorage.setItem('qp_roomCode', roomCode)
-      sessionStorage.setItem('qp_playerId', playerId)
-      sessionStorage.setItem('qp_playerName', playerName)
+      // Persist for reconnection — localStorage survives tab close
+      localStorage.setItem('qp_roomCode', roomCode)
+      localStorage.setItem('qp_playerId', playerId)
+      localStorage.setItem('qp_playerName', playerName)
+      setActiveSession({ role: 'player', roomCode, playerId, playerName })
       if (status === 'live') navigate(`/play/${roomCode}`)
     }
 
@@ -53,9 +55,10 @@ export default function PlayerLobby() {
 
     function onSessionCanceled() {
       setShowCanceledModal(true)
+      clearActiveSession()
       socket.disconnect()
-      sessionStorage.removeItem('qp_roomCode')
-      sessionStorage.removeItem('qp_playerId')
+      localStorage.removeItem('qp_roomCode')
+      localStorage.removeItem('qp_playerId')
       resetSession()
     }
 
