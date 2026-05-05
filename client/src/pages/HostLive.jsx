@@ -239,9 +239,14 @@ export default function HostLive() {
               {leaderboard.slice(0, 5).map((player, idx) => {
                 const rankClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : ''
                 return (
-                  <div key={player.playerId || idx} className="lb-row" style={{ padding: '8px 10px', marginBottom: 4 }}>
+                  <div key={player.playerId || idx} className="lb-row" style={{ padding: '8px 10px', marginBottom: 4, opacity: player.active !== false ? 1 : 0.5 }}>
                     <div className={`lb-rank ${rankClass}`} style={{ width: 20, fontSize: 12 }}>{player.rank || idx + 1}</div>
-                    <div className="lb-name" style={{ fontSize: 12 }}>{player.name}</div>
+                    <div className="lb-name" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {player.name}
+                      {player.active !== false && (
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green-l)', boxShadow: '0 0 4px var(--green-l)' }} />
+                      )}
+                    </div>
                     <div className="lb-score" style={{ fontSize: 11 }}>{player.score}</div>
                   </div>
                 )

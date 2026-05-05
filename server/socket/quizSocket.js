@@ -92,7 +92,13 @@ function initQuizSocket(io) {
           return socket.emit('error', { message: 'Room not found' })
         }
         if (session.status === 'ended') {
-          return socket.emit('error', { message: 'This session has already ended' })
+          // Instead of erroring, send the final results immediately so the player sees the end screen
+          const { buildLeaderboard } = require('../services/quizService')
+          const finalLeaderboard = buildLeaderboard(session.players)
+          return socket.emit('quiz:ended', {
+            finalLeaderboard,
+            sessionId: session._id,
+          })
         }
 
         const activePlayers = session.players.filter(p => p.active !== false)
@@ -107,14 +113,14 @@ function initQuizSocket(io) {
           // Reconnecting player — reactivate them, preserve their score
           await Session.findOneAndUpdate(
             { roomCode: code, 'players.playerId': playerId },
-            { $set: { 'players.$.active': true, 'players.$.name': trimmedName } }
+            { $set: { 'players.$.active': true, 'players.$.name': trimmedName, 'players.$.lastJoinedAt': new Date() } }
           )
           session = await Session.findOne({ roomCode: code })
         } else {
           // New player — push with active: true
           let updatedSession = await Session.findOneAndUpdate(
             { roomCode: code, 'players.playerId': { $ne: playerId } },
-            { $push: { players: { playerId, name: trimmedName, score: 0, active: true } } },
+            { $push: { players: { playerId, name: trimmedName, score: 0, active: true, lastJoinedAt: new Date() } } },
             { new: true }
           )
           if (!updatedSession) {
@@ -158,13 +164,17 @@ function initQuizSocket(io) {
           score: playerEntry?.score || 0,
         })
 
-        // Update host with active player list only
-        const activeList = session.players.filter(p => p.active !== false)
+        // Update host with player list (including active status)
         const hostSocketId = roomHosts[code]
         if (hostSocketId) {
+          const activePlayers = session.players.filter(p => p.active !== false)
           io.to(hostSocketId).emit('room:players', {
-            count: activeList.length,
-            players: activeList.map((p) => ({ name: p.name, id: p.playerId })),
+            count: activePlayers.length,
+            players: session.players.map((p) => ({ 
+              name: p.name, 
+              id: p.playerId,
+              active: p.active !== false 
+            })),
           })
         }
 
@@ -195,13 +205,17 @@ function initQuizSocket(io) {
 
         if (session) {
           console.log(`Player left room ${code} (marked inactive)`)
-          // Update host with active player list only
-          const activeList = session.players.filter(p => p.active !== false)
+          // Update host with player list (including active status)
           const hostSocketId = roomHosts[code]
           if (hostSocketId) {
+            const activePlayers = session.players.filter(p => p.active !== false)
             io.to(hostSocketId).emit('room:players', {
-              count: activeList.length,
-              players: activeList.map((p) => ({ name: p.name, id: p.playerId })),
+              count: activePlayers.length,
+              players: session.players.map((p) => ({ 
+                name: p.name, 
+                id: p.playerId,
+                active: p.active !== false 
+              })),
             })
           }
         }
@@ -261,7 +275,11 @@ function initQuizSocket(io) {
         socket.emit('host:joined', {
           roomCode: code,
           status: session.status,
-          players: session.players.map((p) => ({ name: p.name, id: p.playerId })),
+          players: session.players.map((p) => ({ 
+            name: p.name, 
+            id: p.playerId,
+            active: p.active !== false
+          })),
           currentQuestion,
         })
 
@@ -388,7 +406,7 @@ function initQuizSocket(io) {
           io.to(hostSocketId).emit('quiz:stats', {
             votes,
             totalAnswered: votes.reduce((s, v) => s + v, 0),
-            totalPlayers: updated.players.length,
+            totalPlayers: updated.players.filter(p => p.active !== false).length,
           })
         }
 
@@ -558,6 +576,36 @@ function initQuizSocket(io) {
         socket.to(code).emit('host:disconnected', {
           message: 'Host disconnected. The session may resume shortly.',
         })
+      }
+
+      if (!socket.data.isHost && code && socket.data.playerId) {
+        const disconnectedAt = new Date()
+        // Mark player as inactive in DB ONLY if they haven't rejoined since this disconnect event fired.
+        // This prevents a race condition where a slow disconnect DB call overwrites a fast reconnect.
+        Session.findOneAndUpdate(
+          { 
+            roomCode: code, 
+            'players.playerId': socket.data.playerId,
+            'players.lastJoinedAt': { $lt: disconnectedAt }
+          },
+          { $set: { 'players.$.active': false } },
+          { new: true }
+        ).then(session => {
+          if (session) {
+            const hostSocketId = roomHosts[code]
+            if (hostSocketId) {
+              const activePlayers = session.players.filter(p => p.active !== false)
+              io.to(hostSocketId).emit('room:players', {
+                count: activePlayers.length,
+                players: session.players.map((p) => ({ 
+                  name: p.name, 
+                  id: p.playerId,
+                  active: p.active !== false 
+                })),
+              })
+            }
+          }
+        }).catch(err => console.error('Disconnect cleanup error:', err))
       }
 
       console.log(`Socket disconnected: ${socket.id}`)

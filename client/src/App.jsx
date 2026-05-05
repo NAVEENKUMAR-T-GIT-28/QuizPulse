@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute   from './components/ProtectedRoute'
 import LandingPage      from './pages/LandingPage'
 import AuthPage         from './pages/AuthPage'
@@ -50,10 +50,12 @@ function AppRoutes() {
       <Route path="/profile"             element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
       {/* Player routes — no auth */}
-      <Route path="/join"                element={<JoinPage />} />
-      <Route path="/join/:code"          element={<JoinPage />} />
+      <Route path="/join"                 element={<JoinPage />} />
+      <Route path="/join/:code"           element={<JoinPage />} />
       <Route path="/lobby/:roomCode/wait" element={<PlayerLobby />} />
-      <Route path="/play/:roomCode"      element={<PlayerGame />} />
+      <Route path="/play"                 element={<Navigate to="/join" replace />} />
+      <Route path="/play/:roomCode"       element={<PlayerGame />} />
+      <Route path="*"                     element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

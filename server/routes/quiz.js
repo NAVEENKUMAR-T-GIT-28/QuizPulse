@@ -81,34 +81,43 @@ router.post('/', asyncHandler(async (req, res) => {
 // PUT /api/quiz/:id — update quiz
 router.put('/:id', asyncHandler(async (req, res) => {
   const { title, description, questions, timerMode, quizTimeLimit } = req.body
+  const errors = []
 
-  // Validate if title or questions are being updated
-  if (title || questions) {
-    const validationErrors = validateQuizPayload({
-      title: title || 'placeholder', // only validate title if provided
-      questions: questions || [{ text: 'placeholder', options: ['a', 'b'], correctIndex: 0 }],
-    })
-    // Filter: only report errors for fields actually being changed
-    const relevantErrors = []
-    if (title) {
-      relevantErrors.push(...validationErrors.filter(e => e.includes('Title')))
-    }
-    if (questions) {
-      relevantErrors.push(...validationErrors.filter(e => e.includes('Question') || e.includes('question')))
-    }
-    if (relevantErrors.length > 0) {
-      return res.status(400).json({ error: relevantErrors.join('; ') })
+  if (title !== undefined) {
+    if (typeof title !== 'string' || title.trim().length === 0)
+      errors.push('Title is required')
+    if (title.trim().length > 120)
+      errors.push('Title cannot exceed 120 characters')
+  }
+
+  if (questions !== undefined) {
+    if (!Array.isArray(questions) || questions.length === 0) {
+      errors.push('At least one question is required')
+    } else {
+      questions.forEach((q, i) => {
+        const label = `Question ${i + 1}`
+        if (!q.text || typeof q.text !== 'string')
+          errors.push(`${label}: text is required`)
+        if (!Array.isArray(q.options) || q.options.length < 2 || q.options.length > 4)
+          errors.push(`${label}: must have 2–4 options`)
+        if (!Number.isInteger(q.correctIndex) || q.correctIndex < 0 || q.correctIndex >= (q.options?.length ?? 0))
+          errors.push(`${label}: correctIndex is out of range`)
+        if (q.timeLimit !== undefined && (q.timeLimit < 5 || q.timeLimit > 120))
+          errors.push(`${label}: timeLimit must be between 5 and 120`)
+      })
     }
   }
+
+  if (errors.length > 0) return res.status(400).json({ error: errors.join('; ') })
 
   const quiz = await Quiz.findOne({ _id: req.params.id, hostId: req.user.id })
   if (!quiz) return res.status(404).json({ error: 'Quiz not found' })
 
-  if (title)                     quiz.title = title
-  if (description !== undefined) quiz.description = description
-  if (questions)                 quiz.questions = questions
-  if (timerMode)                 quiz.timerMode = timerMode
-  if (quizTimeLimit !== undefined) quiz.quizTimeLimit = quizTimeLimit
+  if (title !== undefined)           quiz.title = title
+  if (description !== undefined)     quiz.description = description
+  if (questions !== undefined)       quiz.questions = questions
+  if (timerMode !== undefined)       quiz.timerMode = timerMode
+  if (quizTimeLimit !== undefined)   quiz.quizTimeLimit = quizTimeLimit
 
   await quiz.save()
   res.json({ quiz })

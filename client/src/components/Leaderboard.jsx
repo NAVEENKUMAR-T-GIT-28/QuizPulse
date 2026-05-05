@@ -23,6 +23,7 @@ export default function Leaderboard({ data = [], highlightId = null }) {
           <div
             key={player.playerId || player.id || player.name || idx}
             className={`lb-row ${isMe ? 'me' : ''}`}
+            style={{ opacity: player.active !== false ? 1 : 0.5 }}
           >
             <div className={`lb-rank ${rankClass}`}>{rank}</div>
             <div
@@ -31,9 +32,12 @@ export default function Leaderboard({ data = [], highlightId = null }) {
             >
               {initials}
             </div>
-            <div className="lb-name">
+            <div className="lb-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {player.name}
-              {isMe && <span style={{ fontSize: 10, color: 'var(--indigo-l)', marginLeft: 6, fontWeight: 800 }}>(YOU)</span>}
+              {isMe && <span style={{ fontSize: 10, color: 'var(--indigo-l)', fontWeight: 800 }}>(YOU)</span>}
+              {player.active !== false && (
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green-l)', boxShadow: '0 0 4px var(--green-l)' }} />
+              )}
             </div>
             <div className="lb-score">{player.score?.toLocaleString() || 0}</div>
             {player.rankChange !== undefined && player.rankChange !== 0 && (

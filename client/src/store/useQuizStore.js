@@ -42,12 +42,15 @@ const useQuizStore = create((set) => ({
   })),
   setPlayerId:    (playerId) => set({ playerId }),
   setPlayerName:  (playerName) => set({ playerName }),
-  resetSession:   () => set({
-    roomCode: null, sessionId: null, status: 'idle',
-    questions: [], currentIndex: 0, currentQuestion: null,
-    votes: [], leaderboard: [], players: [],
-    myAnswer: null, isCorrect: null, timer: null, myScore: 0,
-  }),
+  resetSession:   () => {
+    localStorage.removeItem('qp_session_ended')
+    set({
+      roomCode: null, sessionId: null, status: 'idle',
+      questions: [], currentIndex: 0, currentQuestion: null,
+      votes: [], leaderboard: [], players: [],
+      myAnswer: null, isCorrect: null, timer: null, myScore: 0,
+    })
+  },
 }))
 
 export default useQuizStore

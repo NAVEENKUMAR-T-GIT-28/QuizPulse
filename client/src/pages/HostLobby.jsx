@@ -222,10 +222,21 @@ export default function HostLobby() {
                   {players.map((player, idx) => {
                     const c = AVATAR_COLORS[idx % AVATAR_COLORS.length]
                     const playerName = player.name || player.playerName || 'Player'
+                    const isActive = player.active !== false
                     return (
-                      <div key={player.id || player.playerId || idx} className="fade-up" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                        <div className="lb-av" style={{ background: c.bg, color: c.color, width: 44, height: 44, fontSize: 13 }}>
-                          {getInitials(playerName)}
+                      <div key={player.id || player.playerId || idx} className="fade-up" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, opacity: isActive ? 1 : 0.4 }}>
+                        <div style={{ position: 'relative' }}>
+                          <div className="lb-av" style={{ background: c.bg, color: c.color, width: 44, height: 44, fontSize: 13 }}>
+                            {getInitials(playerName)}
+                          </div>
+                          {isActive && (
+                            <div style={{
+                              position: 'absolute', bottom: 0, right: 0,
+                              width: 12, height: 12, borderRadius: '50%',
+                              background: 'var(--green-l)', border: '2px solid var(--bg)',
+                              boxShadow: '0 0 8px rgba(34,197,94,.4)',
+                            }} />
+                          )}
                         </div>
                         <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 600, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
                           {playerName}

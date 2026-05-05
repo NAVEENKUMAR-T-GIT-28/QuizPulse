@@ -1,10 +1,11 @@
 const mongoose = require('mongoose')
 
 const PlayerSchema = new mongoose.Schema({
-  playerId: { type: String, required: true },
-  name:     { type: String, required: true, trim: true },
-  score:    { type: Number, default: 0 },
-  active:   { type: Boolean, default: true }
+  playerId:     { type: String, required: true },
+  name:         { type: String, required: true, trim: true },
+  score:        { type: Number, default: 0 },
+  active:       { type: Boolean, default: true },
+  lastJoinedAt: { type: Date, default: Date.now }
 }, { _id: false })
 
 const ResponseSchema = new mongoose.Schema({

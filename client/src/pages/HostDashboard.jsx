@@ -1,7 +1,7 @@
-import Sidebar from '../components/Sidebar'
-import Topbar from '../components/Topbar'
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import Sidebar from '../components/Sidebar'
+import Topbar from '../components/Topbar'
 import { getQuizzes, deleteQuiz, createSession, logout } from '../api/quizApi'
 import { clearAuth, getUser } from '../hooks/useAuth'
 
@@ -29,7 +29,7 @@ export default function HostDashboard() {
         }
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [navigate])
 
   function handleCreate() {
     setSidebarOpen(false)
@@ -55,16 +55,6 @@ export default function HostDashboard() {
       alert(err.response?.data?.error || 'Failed to launch session')
       setLaunching(null)
     }
-  }
-
-  async function handleLogout() {
-    try {
-      await logout()      // tells server to clear the httpOnly cookie
-    } catch {
-      // ignore network errors — clear local state regardless
-    }
-    clearAuth()           // clears the user object from localStorage
-    navigate('/')
   }
 
   const tagColors = [
