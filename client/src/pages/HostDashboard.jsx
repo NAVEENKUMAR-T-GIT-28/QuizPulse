@@ -1,4 +1,5 @@
 import ThemeToggle from '../components/ThemeToggle'
+import Sidebar from '../components/Sidebar'
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getQuizzes, deleteQuiz, createSession, logout } from '../api/quizApi'
@@ -95,33 +96,8 @@ export default function HostDashboard() {
         </div>
       </div>
 
-      {/* Mobile sidebar overlay */}
-      <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
-
       <div className="host-layout">
-        {/* Sidebar */}
-        <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
-          <div className="sidebar-mobile-header">
-            <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--indigo-l)' }}>QuizPulse</span>
-            <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
-              <span className="mat sm">close</span>
-            </button>
-          </div>
-          <button className="nav-item active">
-            <span className="mat sm">dashboard</span>Dashboard
-          </button>
-          <button className="nav-item" onClick={handleCreate}>
-            <span className="mat sm">add_circle</span>New Quiz
-          </button>
-          <button className="nav-item" onClick={() => { setSidebarOpen(false); navigate('/history') }}>
-            <span className="mat sm">history</span>History
-          </button>
-          <div style={{ marginTop: 'auto', paddingTop: 12 }}>
-            <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={handleLogout}>
-              <span className="mat sm">logout</span>Sign out
-            </button>
-          </div>
-        </div>
+        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} activePage="dashboard" />
 
         {/* Main */}
         <div className="main-content scroll-area">

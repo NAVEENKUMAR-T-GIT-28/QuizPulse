@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getSessionHistory, getSessionResults, exportSessionPdf, deleteSession } from '../api/quizApi'
 import { clearAuth, getUser } from '../hooks/useAuth'
 import ThemeToggle from '../components/ThemeToggle'
+import Sidebar from '../components/Sidebar'
 
 export default function HistoryPage() {
   const navigate = useNavigate()
@@ -139,33 +140,8 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {/* Mobile sidebar overlay */}
-      <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
-
       <div className="host-layout">
-        {/* Sidebar */}
-        <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
-          <div className="sidebar-mobile-header">
-            <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--indigo-l)' }}>QuizPulse</span>
-            <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
-              <span className="mat sm">close</span>
-            </button>
-          </div>
-          <button className="nav-item" onClick={() => { setSidebarOpen(false); navigate('/dashboard') }}>
-            <span className="mat sm">dashboard</span>Dashboard
-          </button>
-          <button className="nav-item" onClick={() => { setSidebarOpen(false); navigate('/quiz/new') }}>
-            <span className="mat sm">add_circle</span>New Quiz
-          </button>
-          <button className="nav-item active">
-            <span className="mat sm">history</span>History
-          </button>
-          <div style={{ marginTop: 'auto', paddingTop: 12 }}>
-            <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={handleLogout}>
-              <span className="mat sm">logout</span>Sign out
-            </button>
-          </div>
-        </div>
+        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} activePage="history" />
 
         {/* Main */}
         <div className="main-content scroll-area">

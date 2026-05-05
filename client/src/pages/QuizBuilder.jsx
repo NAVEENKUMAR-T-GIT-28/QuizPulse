@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { getQuiz, createQuiz, updateQuiz } from '../api/quizApi'
 import { clearAuth, getUser } from '../hooks/useAuth'
 import ThemeToggle from '../components/ThemeToggle'
+import Sidebar from '../components/Sidebar'
 
 const LABELS = ['A', 'B', 'C', 'D']
 
@@ -30,7 +31,7 @@ export default function QuizBuilder() {
   const [timerMode, setTimerMode]     = useState('per-question') // 'per-question' | 'quiz'
   const [quizTimeLimit, setQuizTimeLimit] = useState(10)
   const [questions, setQuestions]     = useState([BLANK_QUESTION()])
-  const [activeQ, setActiveQ]         = useState(0)
+  const [activeQ, setActiveQ]         = useState(-1)
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState(null)
   const [fetchLoading, setFetchLoading] = useState(!!id)
@@ -137,6 +138,84 @@ export default function QuizBuilder() {
 
   const q = questions[activeQ] || questions[0]
 
+  function renderQuizSettings() {
+    return (
+      <div style={{ padding: 0, background: 'transparent', border: 'none', marginBottom: 12 }}>
+        <div style={{ marginBottom: 20 }}>
+          <div className="section-label">Quiz Title</div>
+          <input
+            className="input"
+            style={{ fontSize: isMobile ? 18 : 16, fontWeight: 700, padding: '12px 16px' }}
+            placeholder="Enter quiz title..."
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div className="section-label">Quiz Description</div>
+          <textarea
+            className="input textarea"
+            placeholder="Brief description..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            style={{ fontSize: 13, minHeight: 80 }}
+          />
+        </div>
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span className="mat sm" style={{ color: 'var(--indigo-l)' }}>timer</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Timer Mode</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <button
+              type="button"
+              onClick={() => setTimerMode('per-question')}
+              style={{
+                flex: 1, padding: '8px 0', borderRadius: 'var(--r)',
+                border: timerMode === 'per-question' ? '2px solid var(--indigo)' : '1px solid var(--border)',
+                background: timerMode === 'per-question' ? 'rgba(99,102,241,.1)' : 'transparent',
+                color: timerMode === 'per-question' ? 'var(--indigo-l)' : 'var(--text2)',
+                fontWeight: 700, fontSize: 12, cursor: 'pointer',
+              }}
+            >
+              Per Question
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimerMode('quiz')}
+              style={{
+                flex: 1, padding: '8px 0', borderRadius: 'var(--r)',
+                border: timerMode === 'quiz' ? '2px solid var(--indigo)' : '1px solid var(--border)',
+                background: timerMode === 'quiz' ? 'rgba(99,102,241,.1)' : 'transparent',
+                color: timerMode === 'quiz' ? 'var(--indigo-l)' : 'var(--text2)',
+                fontWeight: 700, fontSize: 12, cursor: 'pointer',
+              }}
+            >
+              Same for All
+            </button>
+          </div>
+          {timerMode === 'quiz' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Time:</span>
+              <select
+                className="input"
+                style={{ width: '100%', padding: '6px 10px', fontSize: 12 }}
+                value={quizTimeLimit}
+                onChange={(e) => setQuizTimeLimit(Number(e.target.value))}
+              >
+                {TIME_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   function renderQuestionEditor(question, idx) {
     return (
       <div key={idx}>
@@ -228,14 +307,12 @@ export default function QuizBuilder() {
         <button className="hamburger" onClick={() => setSidebarOpen(true)}>
           <span className="mat">menu</span>
         </button>
-        <button
-          className="btn btn-ghost btn-sm"
+        <div 
+          style={{ display: 'flex', alignItems: 'center', gap: 12, paddingLeft: 8, cursor: 'pointer' }}
           onClick={() => navigate('/dashboard')}
-          style={{ padding: '6px 10px' }}
         >
-          <span className="mat sm">arrow_back</span>
-          <span className="topbar-back-text">Dashboard</span>
-        </button>
+          <span style={{ fontSize: 18, fontWeight: 900, color: 'var(--indigo-l)', letterSpacing: '-0.5px' }}>QuizPulse</span>
+        </div>
         <div className="topbar-sep" />
         <span style={{ fontSize: 13, color: 'var(--text2)' }}>
           <strong style={{ color: 'var(--text)' }}>{id ? 'Edit Quiz' : 'New Quiz'}</strong>
@@ -253,130 +330,59 @@ export default function QuizBuilder() {
         </div>
       </div>
 
-      {/* Mobile sidebar overlay */}
-      <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
-
       <div className="host-layout">
-        {/* Left Sidebar (Standard Nav) */}
-        <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
-          <div className="sidebar-mobile-header">
-            <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--indigo-l)' }}>QuizPulse</span>
-            <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
-              <span className="mat sm">close</span>
-            </button>
-          </div>
-          <button className="nav-item" onClick={() => { setSidebarOpen(false); navigate('/dashboard') }}>
-            <span className="mat sm">dashboard</span>Dashboard
-          </button>
-          <button className="nav-item active" onClick={() => setSidebarOpen(false)}>
-            <span className="mat sm">add_circle</span>New Quiz
-          </button>
-          <button className="nav-item" onClick={() => { setSidebarOpen(false); navigate('/history') }}>
-            <span className="mat sm">history</span>History
-          </button>
-          <div style={{ marginTop: 'auto', paddingTop: 12 }}>
-            <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={handleLogout}>
-              <span className="mat sm">logout</span>Sign out
-            </button>
-          </div>
-        </div>
+        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} activePage="new" />
 
         {/* Main Content (Editor) */}
         <div className="main-content scroll-area">
           <div style={{ maxWidth: 800, margin: '0 auto', paddingBottom: 60 }}>
             {error && <div className="error-msg">{error}</div>}
 
-            {/* Quiz Title & Header */}
-            <div style={{ marginBottom: 28 }}>
-              <div className="section-label">Quiz Title</div>
-              <input
-                className="input"
-                style={{ fontSize: 24, fontWeight: 900, padding: '16px 20px', borderRadius: 'var(--r2)' }}
-                placeholder="Enter quiz title..."
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </div>
-
-            {/* Description + Timer Mode (always at top) */}
-            <div style={{ marginBottom: 24 }}>
-              <div className="section-label">Quiz Description (optional)</div>
-              <textarea
-                className="input textarea"
-                placeholder="Brief description of your quiz..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                style={{ fontSize: 14 }}
-              />
-            </div>
-
-            <div style={{
-              marginBottom: 28, padding: '16px 20px',
-              background: 'rgba(99,102,241,.06)',
-              border: '1px solid rgba(99,102,241,.15)',
-              borderRadius: 'var(--r2)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <span className="mat sm" style={{ color: 'var(--indigo-l)' }}>timer</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Timer Mode</span>
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                <button
-                  type="button"
-                  onClick={() => setTimerMode('per-question')}
-                  style={{
-                    flex: 1, padding: '10px 0', borderRadius: 'var(--r)',
-                    border: timerMode === 'per-question' ? '2px solid var(--indigo)' : '2px solid var(--border2)',
-                    background: timerMode === 'per-question' ? 'rgba(99,102,241,.15)' : 'transparent',
-                    color: timerMode === 'per-question' ? 'var(--indigo-l)' : 'var(--text2)',
-                    fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all .15s',
-                  }}
-                >
-                  <span className="mat sm" style={{ display: 'block', marginBottom: 4 }}>tune</span>
-                  Per Question
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTimerMode('quiz')}
-                  style={{
-                    flex: 1, padding: '10px 0', borderRadius: 'var(--r)',
-                    border: timerMode === 'quiz' ? '2px solid var(--indigo)' : '2px solid var(--border2)',
-                    background: timerMode === 'quiz' ? 'rgba(99,102,241,.15)' : 'transparent',
-                    color: timerMode === 'quiz' ? 'var(--indigo-l)' : 'var(--text2)',
-                    fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all .15s',
-                  }}
-                >
-                  <span className="mat sm" style={{ display: 'block', marginBottom: 4 }}>av_timer</span>
-                  Same for All
-                </button>
-              </div>
-              {timerMode === 'quiz' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>Time per question:</span>
-                  <select
-                    className="input"
-                    style={{ width: 140, padding: '8px 12px', fontSize: 13 }}
-                    value={quizTimeLimit}
-                    onChange={(e) => setQuizTimeLimit(Number(e.target.value))}
-                  >
-                    {TIME_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            <div className="section-label" style={{ marginBottom: 12 }}>Questions</div>
-
             {/* Layout Branch: Mobile Accordion vs Desktop Single Question */}
             {isMobile ? (
               <div className="mobile-accordion-list">
+                {/* Quiz Settings Accordion Item (Mobile) */}
+                <div className="accordion" style={{ marginBottom: 12 }}>
+                  <div 
+                    className={`accordion-header ${activeQ === -1 ? 'active' : ''}`}
+                    onClick={() => setActiveQ(activeQ === -1 ? -2 : -1)}
+                    style={{ background: 'rgba(99,102,241,.05)', borderColor: activeQ === -1 ? 'var(--indigo)' : 'var(--border)' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span className="mat" style={{ color: 'var(--indigo-l)' }}>settings</span>
+                      <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--indigo-l)' }}>
+                        Quiz Settings
+                      </span>
+                    </div>
+                    <span className="mat">{activeQ === -1 ? 'expand_less' : 'expand_more'}</span>
+                  </div>
+                  {activeQ === -1 && (
+                    <div className="accordion-content" style={{ padding: '20px 16px' }}>
+                      {renderQuizSettings()}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div className="section-label" style={{ marginBottom: 0 }}>Questions</div>
+                  {activeQ !== -2 && (
+                    <button 
+                      type="button" 
+                      className="btn btn-ghost btn-sm" 
+                      style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px' }}
+                      onClick={() => setActiveQ(-2)}
+                    >
+                      <span className="mat sm" style={{ fontSize: 14 }}>unfold_less</span>
+                      Collapse All
+                    </button>
+                  )}
+                </div>
+
                 {questions.map((question, idx) => (
                   <div key={idx} className="accordion">
                     <div 
                       className={`accordion-header ${activeQ === idx ? 'active' : ''}`}
-                      onClick={() => setActiveQ(activeQ === idx ? -1 : idx)}
+                      onClick={() => setActiveQ(activeQ === idx ? -2 : idx)}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{ width: 24, height: 24, borderRadius: 6, background: activeQ === idx ? 'var(--indigo)' : 'var(--bg4)', color: activeQ === idx ? '#fff' : 'var(--text2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>
@@ -406,16 +412,44 @@ export default function QuizBuilder() {
               </div>
             ) : (
               /* Desktop Single Question Editor */
-              <div className="glass" style={{ padding: 32, borderRadius: 'var(--r2)' }}>
-                {renderQuestionEditor(questions[activeQ], activeQ)}
-              </div>
+              <>
+                {/* Quiz Settings Accordion Item (Desktop Center) */}
+                <div className="accordion" style={{ marginBottom: 28 }}>
+                  <div 
+                    className={`accordion-header ${activeQ === -1 ? 'active' : ''}`}
+                    onClick={() => setActiveQ(activeQ === -1 ? -2 : -1)}
+                    style={{ 
+                      padding: '16px 20px', 
+                      background: activeQ === -1 ? 'rgba(99,102,241,.06)' : 'var(--bg2)',
+                      border: '1px solid var(--border)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span className="mat" style={{ color: activeQ === -1 ? 'var(--indigo-l)' : 'var(--text3)' }}>settings</span>
+                      <span style={{ fontWeight: 800, fontSize: 15, color: activeQ === -1 ? 'var(--indigo-l)' : 'var(--text2)' }}>
+                        Quiz Settings
+                      </span>
+                    </div>
+                    <span className="mat">{activeQ === -1 ? 'expand_less' : 'expand_more'}</span>
+                  </div>
+                  {activeQ === -1 && (
+                    <div className="accordion-content" style={{ padding: '32px', background: 'var(--bg)', border: '1px solid var(--border)', borderTop: 'none' }}>
+                      {renderQuizSettings()}
+                    </div>
+                  )}
+                </div>
+
+                <div className="glass" style={{ padding: 32, borderRadius: 'var(--r2)' }}>
+                  {renderQuestionEditor(questions[activeQ] || questions[0], activeQ < 0 ? 0 : activeQ)}
+                </div>
+              </>
             )}
           </div>
         </div>
 
         {/* Right Side Navigator (Desktop Only) */}
         {!isMobile && (
-          <div className="sidebar" style={{ width: 280, borderLeft: '1px solid var(--border)', borderRight: 'none', background: 'var(--bg2)' }}>
+          <div className="sidebar" style={{ width: 300, borderLeft: '1px solid var(--border)', borderRight: 'none', background: 'var(--bg2)', padding: '20px 16px' }}>
             <div style={{ padding: '4px 6px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div className="section-label" style={{ marginBottom: 0 }}>Questions ({questions.length})</div>
               <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={addQuestion}>
