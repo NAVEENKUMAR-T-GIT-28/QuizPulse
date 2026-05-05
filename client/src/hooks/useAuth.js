@@ -15,6 +15,9 @@ export function saveAuth(user) {
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
+// Alias used in profile page to update cached user after edits
+export const setUser = saveAuth
+
 // ── Called on logout ─────────────────────────────────────────────
 export function clearAuth() {
   localStorage.removeItem(USER_KEY)

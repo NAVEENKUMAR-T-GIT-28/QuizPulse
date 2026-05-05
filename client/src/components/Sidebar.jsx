@@ -51,6 +51,13 @@ export default function Sidebar({ isOpen, setIsOpen, activePage }) {
         >
           <span className="mat sm">history</span>History
         </button>
+
+        <button 
+          className={`nav-item ${activePage === 'profile' ? 'active' : ''}`} 
+          onClick={() => navTo('/profile')}
+        >
+          <span className="mat sm">person</span>Profile
+        </button>
         
         <div style={{ marginTop: 'auto', paddingTop: 12 }}>
           <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={handleLogout}>

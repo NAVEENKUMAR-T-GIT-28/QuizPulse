@@ -31,6 +31,21 @@ export async function getMe() {
   return data   // { user }
 }
 
+export async function updateProfile(payload) {
+  const { data } = await api.patch('/api/auth/profile', payload)
+  return data   // { user }
+}
+
+export async function changePassword(currentPassword, newPassword) {
+  const { data } = await api.post('/api/auth/profile/change-password', { currentPassword, newPassword })
+  return data
+}
+
+export async function deleteAccount(password) {
+  const { data } = await api.delete('/api/auth/account', { data: { password } })
+  return data
+}
+
 // ─── Quiz CRUD ─────────────────────────────────────────────────────
 // All headers() calls are gone — cookie is automatic.
 

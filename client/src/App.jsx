@@ -11,6 +11,7 @@ import PlayerLobby      from './pages/PlayerLobby'
 import PlayerGame       from './pages/PlayerGame'
 import ResultsPage      from './pages/ResultsPage'
 import HistoryPage      from './pages/HistoryPage'
+import ProfilePage      from './pages/ProfilePage'
 import useSessionGuard  from './hooks/useSessionGuard'
 
 /**
@@ -46,6 +47,7 @@ function AppRoutes() {
       <Route path="/host/:roomCode"      element={<ProtectedRoute><HostLive /></ProtectedRoute>} />
       <Route path="/results/:sessionId"  element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
       <Route path="/history"             element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+      <Route path="/profile"             element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
       {/* Player routes — no auth */}
       <Route path="/join"                element={<JoinPage />} />

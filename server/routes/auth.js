@@ -3,18 +3,18 @@
 const express        = require('express')
 const jwt            = require('jsonwebtoken')
 const User           = require('../models/User')
+const Quiz           = require('../models/Quiz')
+const Session        = require('../models/Session')
 const authMiddleware = require('../middleware/authMiddleware')
 
 const router = express.Router()
 
 // ─── Cookie config ────────────────────────────────────────────
-// Shared options for every Set-Cookie call.
-// Adjust maxAge to match your JWT expiry (7 days = 604800000 ms).
 const COOKIE_OPTIONS = {
-  httpOnly:  true,                      // JS cannot read this cookie
-  sameSite:  'strict',                  // no cross-site sending
-  secure:    process.env.NODE_ENV === 'production',  // HTTPS-only in prod
-  maxAge:    7 * 24 * 60 * 60 * 1000,  // 7 days in ms — matches JWT expiry
+  httpOnly:  true,
+  sameSite:  'strict',
+  secure:    process.env.NODE_ENV === 'production',
+  maxAge:    7 * 24 * 60 * 60 * 1000,
   path:      '/',
 }
 
@@ -43,12 +43,9 @@ router.post('/register', async (req, res) => {
     const user  = await User.create({ name, email, password })
     const token = signToken(user)
 
-    // Set token in httpOnly cookie — never in response body
     res.cookie('token', token, COOKIE_OPTIONS)
-
-    // Return only the safe user object — no token
     res.status(201).json({
-      user: { id: user._id, name: user.name, email: user.email }
+      user: { id: user._id, name: user.name, email: user.email, createdAt: user.createdAt }
     })
   } catch (err) {
     if (err.name === 'ValidationError') {
@@ -79,22 +76,17 @@ router.post('/login', async (req, res) => {
     }
 
     const token = signToken(user)
-
-    // Set token in httpOnly cookie — never in response body
     res.cookie('token', token, COOKIE_OPTIONS)
-
-    // Return only the safe user object — no token
     res.json({
-      user: { id: user._id, name: user.name, email: user.email }
+      user: { id: user._id, name: user.name, email: user.email, createdAt: user.createdAt }
     })
   } catch (err) {
     res.status(500).json({ error: 'Server error' })
   }
 })
 
-// POST /api/auth/logout  ← NEW endpoint
+// POST /api/auth/logout
 router.post('/logout', (req, res) => {
-  // Overwrite the cookie with an expired one — browser deletes it immediately
   res.cookie('token', '', { ...COOKIE_OPTIONS, maxAge: 0 })
   res.json({ message: 'Logged out' })
 })
@@ -104,7 +96,80 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password')
     if (!user) return res.status(404).json({ error: 'User not found' })
-    res.json({ user: { id: user._id, name: user.name, email: user.email } })
+    res.json({ user: { id: user._id, name: user.name, email: user.email, createdAt: user.createdAt } })
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// PATCH /api/auth/profile — update name and/or email
+router.patch('/profile', authMiddleware, async (req, res) => {
+  const { name, email } = req.body
+  if (!name && !email) {
+    return res.status(400).json({ error: 'Provide at least name or email to update' })
+  }
+  try {
+    const user = await User.findById(req.user.id)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    if (name) user.name = name.trim()
+    if (email) {
+      const existing = await User.findOne({ email: email.toLowerCase(), _id: { $ne: user._id } })
+      if (existing) return res.status(409).json({ error: 'Email already in use by another account' })
+      user.email = email.toLowerCase().trim()
+    }
+    await user.save()
+    const token = signToken(user)
+    res.cookie('token', token, COOKIE_OPTIONS)
+    res.json({ user: { id: user._id, name: user.name, email: user.email, createdAt: user.createdAt } })
+  } catch (err) {
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ error: Object.values(err.errors).map(e => e.message).join(', ') })
+    }
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// POST /api/auth/profile/change-password
+router.post('/profile/change-password', authMiddleware, async (req, res) => {
+  const { currentPassword, newPassword } = req.body
+  if (!currentPassword || !newPassword)
+    return res.status(400).json({ error: 'Current and new password are required' })
+  if (newPassword.length < 6)
+    return res.status(400).json({ error: 'New password must be at least 6 characters' })
+  try {
+    const user = await User.findById(req.user.id)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    const isMatch = await user.comparePassword(currentPassword)
+    if (!isMatch) return res.status(401).json({ error: 'Current password is incorrect' })
+    user.password = newPassword
+    await user.save()
+    res.json({ message: 'Password updated successfully' })
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// DELETE /api/auth/account — delete own account (password confirmation required)
+router.delete('/account', authMiddleware, async (req, res) => {
+  const { password } = req.body
+  if (!password) return res.status(400).json({ error: 'Password required to delete account' })
+  try {
+    const user = await User.findById(req.user.id)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    const isMatch = await user.comparePassword(password)
+    if (!isMatch) return res.status(401).json({ error: 'Incorrect password' })
+
+    // 1. Delete all Quizzes owned by this user
+    // Note: Quiz model has a post-delete hook that removes associated sessions,
+    // but we'll also explicitly delete sessions tied to hostId for safety.
+    await Quiz.deleteMany({ hostId: user._id })
+    await Session.deleteMany({ hostId: user._id })
+
+    // 2. Delete the user
+    await User.findByIdAndDelete(req.user.id)
+
+    res.cookie('token', '', { ...COOKIE_OPTIONS, maxAge: 0 })
+    res.json({ message: 'Account deleted' })
   } catch (err) {
     res.status(500).json({ error: 'Server error' })
   }
