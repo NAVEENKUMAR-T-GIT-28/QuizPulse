@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSessionHistory, getSessionResults, exportSessionPdf, deleteSession } from '../api/quizApi'
 import { clearAuth, getUser } from '../hooks/useAuth'
-import ThemeToggle from '../components/ThemeToggle'
 import Sidebar from '../components/Sidebar'
+import Topbar from '../components/Topbar'
 
 export default function HistoryPage() {
   const navigate = useNavigate()
@@ -121,24 +121,7 @@ export default function HistoryPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Topbar */}
-      <div className="topbar">
-        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
-          <span className="mat">menu</span>
-        </button>
-        <div className="topbar-logo">QuizPulse</div>
-        <div className="topbar-sep" />
-        <div className="topbar-right">
-          <ThemeToggle />
-          {user && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(99,102,241,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span className="mat sm" style={{ color: 'var(--indigo-l)' }}>person</span>
-              </div>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</span>
-            </div>
-          )}
-        </div>
-      </div>
+      <Topbar onMenuClick={() => setSidebarOpen(true)} title="Host History" />
 
       <div className="host-layout">
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} activePage="history" />

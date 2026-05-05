@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getQuiz, createQuiz, updateQuiz } from '../api/quizApi'
 import { clearAuth, getUser } from '../hooks/useAuth'
-import ThemeToggle from '../components/ThemeToggle'
 import Sidebar from '../components/Sidebar'
+import Topbar from '../components/Topbar'
 
 const LABELS = ['A', 'B', 'C', 'D']
 
@@ -303,32 +303,20 @@ export default function QuizBuilder() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Topbar */}
-      <div className="topbar">
-        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
-          <span className="mat">menu</span>
-        </button>
-        <div 
-          style={{ display: 'flex', alignItems: 'center', gap: 12, paddingLeft: 8, cursor: 'pointer' }}
-          onClick={() => navigate('/dashboard')}
+      <Topbar 
+        onMenuClick={() => setSidebarOpen(true)} 
+        onLogoClick={() => navigate('/dashboard')}
+        title={id ? 'Edit Quiz' : 'New Quiz'}
+      >
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={handleSubmit}
+          disabled={loading}
         >
-          <span style={{ fontSize: 18, fontWeight: 900, color: 'var(--indigo-l)', letterSpacing: '-0.5px' }}>QuizPulse</span>
-        </div>
-        <div className="topbar-sep" />
-        <span style={{ fontSize: 13, color: 'var(--text2)' }}>
-          <strong style={{ color: 'var(--text)' }}>{id ? 'Edit Quiz' : 'New Quiz'}</strong>
-        </span>
-        <div className="topbar-right">
-          <ThemeToggle />
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            <span className="mat sm">save</span>
-            {loading ? 'Saving...' : 'Save Quiz'}
-          </button>
-        </div>
-      </div>
+          <span className="mat sm">save</span>
+          {loading ? 'Saving...' : 'Save Quiz'}
+        </button>
+      </Topbar>
 
       <div className="host-layout">
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} activePage="new" />

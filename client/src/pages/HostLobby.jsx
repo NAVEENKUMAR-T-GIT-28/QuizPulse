@@ -3,9 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import socket from '../socket/socket'
 import useQuizStore from '../store/useQuizStore'
 import QRCodeDisplay from '../components/QRCodeDisplay'
-import ThemeToggle from '../components/ThemeToggle'
 import { verifyHostSession, deleteSession } from '../api/quizApi'
 import { setActiveSession, clearActiveSession } from '../context/ActiveSessionContext'
+import Topbar from '../components/Topbar'
 
 const AVATAR_COLORS = [
   { bg: 'rgba(99,102,241,.15)', color: 'var(--indigo-l)' },
@@ -131,33 +131,24 @@ export default function HostLobby() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Topbar */}
-      <div className="topbar">
-        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
-          <span className="mat">menu</span>
-        </button>
-        <div className="topbar-logo">QuizPulse</div>
-        <div className="topbar-sep" />
-        <span style={{ fontSize: 13, color: 'var(--text2)' }}>Lobby</span>
-        <div className="topbar-right">
-          <ThemeToggle />
-          <div className="badge badge-indigo">
-            <span className="dots" style={{ zoom: 0.7 }}>
-              <div className="dot" /><div className="dot" /><div className="dot" />
-            </span>
-            Waiting
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => { clearActiveSession(); socket.disconnect(); navigate('/dashboard') }}>
-            <span className="mat sm">arrow_back</span><span className="topbar-back-text">Back</span>
-          </button>
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={handleStart}
-            disabled={players.length === 0}
-          >
-            <span className="mat sm">play_arrow</span><span className="topbar-back-text">Start Quiz</span>
-          </button>
+      <Topbar onMenuClick={() => setSidebarOpen(true)} title="Game Lobby">
+        <div className="badge badge-indigo">
+          <span className="dots" style={{ zoom: 0.7 }}>
+            <div className="dot" /><div className="dot" /><div className="dot" />
+          </span>
+          Waiting
         </div>
-      </div>
+        <button className="btn btn-ghost btn-sm" onClick={() => { clearActiveSession(); socket.disconnect(); navigate('/dashboard') }}>
+          <span className="mat sm">arrow_back</span><span className="topbar-back-text">Back</span>
+        </button>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={handleStart}
+          disabled={players.length === 0}
+        >
+          <span className="mat sm">play_arrow</span><span className="topbar-back-text">Start Quiz</span>
+        </button>
+      </Topbar>
 
       {/* Mobile sidebar overlay */}
       <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />

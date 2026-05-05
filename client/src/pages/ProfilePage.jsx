@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getMe, updateProfile, changePassword, deleteAccount, logout } from '../api/quizApi'
 import { clearAuth, getUser, setUser } from '../hooks/useAuth'
-import ThemeToggle from '../components/ThemeToggle'
 import Sidebar from '../components/Sidebar'
+import Topbar from '../components/Topbar'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -105,17 +105,7 @@ export default function ProfilePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Topbar */}
-      <div className="topbar">
-        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
-          <span className="mat">menu</span>
-        </button>
-        <div className="topbar-logo">QuizPulse</div>
-        <div className="topbar-sep" />
-        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)' }}>My Profile</span>
-        <div className="topbar-right">
-          <ThemeToggle />
-        </div>
-      </div>
+      <Topbar onMenuClick={() => setSidebarOpen(true)} title="My Profile" />
 
       <div className="host-layout">
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} activePage="profile" />

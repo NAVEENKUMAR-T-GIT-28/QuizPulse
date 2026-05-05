@@ -211,6 +211,18 @@ body {
 .topbar-logo { font-size: 17px; font-weight: 900; color: var(--indigo); letter-spacing: -.3px; }
 .topbar-sep { width: 1px; height: 18px; background: var(--border2); }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.topbar-user-pill { 
+  display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 100px; 
+  background: rgba(99,102,241,.06); border: 1px solid rgba(99,102,241,.1); flex-shrink: 0;
+}
+[data-theme="light"] .topbar-user-pill { background: rgba(91,95,239,.05); border-color: rgba(91,95,239,.1); }
+.topbar-avatar { 
+  width: 26px; height: 26px; border-radius: 50%; background: var(--indigo); 
+  display: flex; align-items: center; justify-content: center; font-size: 10px; 
+  font-weight: 900; color: #fff; flex-shrink: 0;
+}
+.topbar-username { font-size: 12px; font-weight: 700; color: var(--text2); max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) { .mobile-hide { display: none !important; } }
 
 /* -- SIDEBAR -- */
 .sidebar {

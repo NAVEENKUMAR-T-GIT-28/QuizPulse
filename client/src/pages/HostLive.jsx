@@ -6,6 +6,7 @@ import LiveBarChart from '../components/LiveBarChart'
 import CountdownTimer from '../components/CountdownTimer'
 import Leaderboard from '../components/Leaderboard'
 import ThemeToggle from '../components/ThemeToggle'
+import Topbar from '../components/Topbar'
 import { verifyHostSession } from '../api/quizApi'
 import { setActiveSession, clearActiveSession } from '../context/ActiveSessionContext'
 
@@ -192,14 +193,14 @@ export default function HostLive() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Topbar */}
-      <div className="topbar">
-        <div className="topbar-logo">QuizPulse</div>
-        <div className="topbar-sep" />
-        <div className="badge badge-live">
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f87171', animation: 'dotB 1s infinite', display: 'inline-block' }} />
-          LIVE
-        </div>
-        {q && (
+      <Topbar 
+        title={
+          <div className="badge badge-live">
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f87171', animation: 'dotB 1s infinite', display: 'inline-block' }} />
+            LIVE
+          </div>
+        }
+        center={q && (
           <div style={{ flex: 1, maxWidth: 200, margin: '0 16px' }}>
             <div className="progress-wrap">
               <div className="progress-fill" style={{ width: `${progress}%` }} />
@@ -209,20 +210,18 @@ export default function HostLive() {
             </div>
           </div>
         )}
-        <div className="topbar-right">
-          <ThemeToggle />
-          {timer !== null && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.05)', border: '1px solid var(--border2)', borderRadius: 'var(--r)', padding: '6px 12px' }}>
-              <span className="mat sm" style={{ color: 'var(--indigo-l)' }}>timer</span>
-              <span className="mono" style={{ fontSize: 16, fontWeight: 900, color: timer <= 5 ? 'var(--red)' : 'var(--indigo-l)' }}>{timer}</span>
-              <span style={{ fontSize: 11, color: 'var(--text3)' }}>sec</span>
-            </div>
-          )}
-          <button className="btn btn-danger btn-sm" onClick={handleEnd}>
-            <span className="mat sm">stop</span>End
-          </button>
-        </div>
-      </div>
+      >
+        {timer !== null && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.05)', border: '1px solid var(--border2)', borderRadius: 'var(--r)', padding: '6px 12px' }}>
+            <span className="mat sm" style={{ color: 'var(--indigo-l)' }}>timer</span>
+            <span className="mono" style={{ fontSize: 16, fontWeight: 900, color: timer <= 5 ? 'var(--red)' : 'var(--indigo-l)' }}>{timer}</span>
+            <span style={{ fontSize: 11, color: 'var(--text3)' }}>sec</span>
+          </div>
+        )}
+        <button className="btn btn-danger btn-sm" onClick={handleEnd}>
+          <span className="mat sm">stop</span>End
+        </button>
+      </Topbar>
 
       <div className="host-layout">
         {/* Sidebar */}

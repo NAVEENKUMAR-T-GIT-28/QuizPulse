@@ -1,5 +1,5 @@
-import ThemeToggle from '../components/ThemeToggle'
 import Sidebar from '../components/Sidebar'
+import Topbar from '../components/Topbar'
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getQuizzes, deleteQuiz, createSession, logout } from '../api/quizApi'
@@ -77,24 +77,7 @@ export default function HostDashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Topbar */}
-      <div className="topbar">
-        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
-          <span className="mat">menu</span>
-        </button>
-        <div className="topbar-logo">QuizPulse</div>
-        <div className="topbar-sep" />
-        <div className="topbar-right">
-          <ThemeToggle />
-          {user && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(99,102,241,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span className="mat sm" style={{ color: 'var(--indigo-l)' }}>person</span>
-              </div>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</span>
-            </div>
-          )}
-        </div>
-      </div>
+      <Topbar onMenuClick={() => setSidebarOpen(true)} title="Host Dashboard" />
 
       <div className="host-layout">
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} activePage="dashboard" />
