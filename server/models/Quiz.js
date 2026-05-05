@@ -63,10 +63,16 @@ const QuizSchema = new mongoose.Schema({
   },
   questions: {
     type: [QuestionSchema],
-    validate: {
-      validator: (arr) => arr.length >= 1,
-      message: 'Quiz must have at least one question'
-    }
+    validate: [
+      {
+        validator: (arr) => arr.length >= 1,
+        message: 'Quiz must have at least one question'
+      },
+      {
+        validator: (arr) => arr.length <= 25,
+        message: 'Quiz cannot exceed 25 questions'
+      }
+    ]
   },
   createdAt: {
     type: Date,
