@@ -133,6 +133,15 @@ export default function HistoryPage() {
               <div className="page-title">Session History</div>
               <div className="page-sub">Review results from all your past quiz sessions</div>
             </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px',
+              borderRadius: 8, background: 'var(--amber-bg)', border: '1px solid var(--amber-border)',
+              fontSize: 12, color: 'var(--amber)', flexShrink: 0,
+              fontWeight: 600
+            }}>
+              <span className="mat sm" style={{ fontSize: 16 }}>schedule</span>
+              Session data is automatically deleted after 90 days
+            </div>
           </div>
 
           {/* Stats */}

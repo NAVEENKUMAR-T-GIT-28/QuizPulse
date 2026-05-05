@@ -67,6 +67,7 @@ export default function QuizBuilder() {
 
   // Question management
   function addQuestion() {
+    if (questions.length >= 25) return
     setQuestions(prev => {
       const next = [...prev, BLANK_QUESTION()]
       setActiveQ(next.length - 1)
@@ -394,8 +395,10 @@ export default function QuizBuilder() {
                   className="btn btn-ghost btn-lg"
                   style={{ width: '100%', borderStyle: 'dashed', marginTop: 12 }}
                   onClick={addQuestion}
+                  disabled={questions.length >= 25}
                 >
-                  <span className="mat sm">add</span>Add another question
+                  <span className="mat sm">add</span>
+                  {questions.length >= 25 ? 'Max 25 questions reached' : 'Add another question'}
                 </button>
               </div>
             ) : (
@@ -439,8 +442,16 @@ export default function QuizBuilder() {
         {!isMobile && (
           <div className="sidebar" style={{ width: 300, borderLeft: '1px solid var(--border)', borderRight: 'none', background: 'var(--bg2)', padding: '20px 16px' }}>
             <div style={{ padding: '4px 6px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div className="section-label" style={{ marginBottom: 0 }}>Questions ({questions.length})</div>
-              <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={addQuestion}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="section-label" style={{ marginBottom: 0 }}>Questions ({questions.length})</div>
+                {questions.length >= 25 && (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(239,68,68,.12)', color: '#f87171' }}>MAX</span>
+                )}
+                {questions.length >= 20 && questions.length < 25 && (
+                  <span style={{ fontSize: 10, color: 'var(--text3)' }}>{25 - questions.length} left</span>
+                )}
+              </div>
+              <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={addQuestion} disabled={questions.length >= 25}>
                 <span className="mat sm">add</span>
               </button>
             </div>
@@ -471,9 +482,17 @@ export default function QuizBuilder() {
               ))}
             </div>
 
-            <button type="button" className="btn btn-primary" style={{ width: '100%', marginTop: 16 }} onClick={addQuestion}>
-              <span className="mat sm">add</span>Add new question
-            </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ width: '100%', marginTop: 16 }}
+                onClick={addQuestion}
+                disabled={questions.length >= 25}
+                title={questions.length >= 25 ? 'Maximum 25 questions reached' : undefined}
+              >
+                <span className="mat sm">add</span>
+                {questions.length >= 25 ? 'Max 25 questions reached' : 'Add new question'}
+              </button>
           </div>
         )}
       </div>
