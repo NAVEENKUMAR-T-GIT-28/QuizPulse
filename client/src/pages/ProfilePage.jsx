@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [email, setEmail]     = useState(currentUser?.email || '')
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileMsg, setProfileMsg] = useState(null)
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
 
   // Password fields
   const [currentPw, setCurrentPw]   = useState('')
@@ -23,6 +24,7 @@ export default function ProfilePage() {
   const [pwLoading, setPwLoading]   = useState(false)
   const [pwMsg, setPwMsg]           = useState(null)
   const [showPw, setShowPw]         = useState(false)
+  const [isEditingPassword, setIsEditingPassword] = useState(false)
 
   // Delete account
   const [deletePw, setDeletePw]           = useState('')
@@ -49,11 +51,19 @@ export default function ProfilePage() {
       setCurrentUser(updated)
       setUser(updated)
       setProfileMsg({ type: 'success', text: 'Profile updated successfully!' })
+      setIsEditingProfile(false)
     } catch (err) {
       setProfileMsg({ type: 'error', text: err.response?.data?.error || 'Failed to update profile' })
     } finally {
       setProfileLoading(false)
     }
+  }
+
+  function handleCancelEdit() {
+    setName(currentUser?.name || '')
+    setEmail(currentUser?.email || '')
+    setIsEditingProfile(false)
+    setProfileMsg(null)
   }
 
   async function handlePasswordChange(e) {
@@ -70,11 +80,20 @@ export default function ProfilePage() {
       setCurrentPw('')
       setNewPw('')
       setConfirmPw('')
+      setIsEditingPassword(false)
     } catch (err) {
       setPwMsg({ type: 'error', text: err.response?.data?.error || 'Failed to change password' })
     } finally {
       setPwLoading(false)
     }
+  }
+
+  function handleCancelPasswordEdit() {
+    setCurrentPw('')
+    setNewPw('')
+    setConfirmPw('')
+    setIsEditingPassword(false)
+    setPwMsg(null)
   }
 
   async function handleDeleteAccount() {
@@ -144,48 +163,87 @@ export default function ProfilePage() {
                   <div style={{ fontWeight: 800, fontSize: 15 }}>Personal Information</div>
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>Update your name and email address</div>
                 </div>
-              </div>
-              <form onSubmit={handleProfileSave} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-                <div>
-                  <div className="section-label">Full Name</div>
-                  <input
-                    className="input"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="Your full name"
-                    required
-                    maxLength={60}
-                  />
-                </div>
-                <div>
-                  <div className="section-label">Email Address</div>
-                  <input
-                    className="input"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    required
-                  />
-                </div>
-                {profileMsg && (
-                  <div style={{
-                    padding: '10px 14px', borderRadius: 'var(--r)',
-                    background: profileMsg.type === 'success' ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)',
-                    border: `1px solid ${profileMsg.type === 'success' ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.25)'}`,
-                    color: profileMsg.type === 'success' ? 'var(--green-l)' : '#f87171',
-                    fontSize: 13, fontWeight: 600,
-                  }}>
-                    {profileMsg.text}
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="submit" className="btn btn-primary" disabled={profileLoading}>
-                    <span className="mat sm">save</span>
-                    {profileLoading ? 'Saving…' : 'Save Changes'}
+                {!isEditingProfile && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ marginLeft: 'auto', padding: '4px 8px', height: 'auto' }}
+                    onClick={() => setIsEditingProfile(true)}
+                  >
+                    <span className="mat sm">edit</span>
                   </button>
+                )}
+              </div>
+
+              {isEditingProfile ? (
+                <form onSubmit={handleProfileSave} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  <div>
+                    <div className="section-label">Full Name</div>
+                    <input
+                      className="input"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Your full name"
+                      required
+                      maxLength={60}
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <div className="section-label">Email Address</div>
+                    <input
+                      className="input"
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="your@email.com"
+                      required
+                    />
+                  </div>
+                  {profileMsg && (
+                    <div style={{
+                      padding: '10px 14px', borderRadius: 'var(--r)',
+                      background: profileMsg.type === 'success' ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)',
+                      border: `1px solid ${profileMsg.type === 'success' ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.25)'}`,
+                      color: profileMsg.type === 'success' ? 'var(--green-l)' : '#f87171',
+                      fontSize: 13, fontWeight: 600,
+                    }}>
+                      {profileMsg.text}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                    <button type="button" className="btn btn-ghost" onClick={handleCancelEdit} disabled={profileLoading}>
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={profileLoading}>
+                      <span className="mat sm">save</span>
+                      {profileLoading ? 'Saving…' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Full Name</div>
+                      <div style={{ fontSize: 15, fontWeight: 600 }}>{currentUser?.name}</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Email Address</div>
+                    <div style={{ fontSize: 15, fontWeight: 600 }}>{currentUser?.email}</div>
+                  </div>
+                  {profileMsg && profileMsg.type === 'success' && (
+                    <div style={{
+                      padding: '10px 14px', borderRadius: 'var(--r)',
+                      background: 'rgba(34,197,94,.1)', border: '1px solid rgba(34,197,94,.25)',
+                      color: 'var(--green-l)', fontSize: 13, fontWeight: 600,
+                    }}>
+                      {profileMsg.text}
+                    </div>
+                  )}
                 </div>
-              </form>
+              )}
             </div>
 
             {/* Change Password */}
@@ -198,69 +256,103 @@ export default function ProfilePage() {
                   <div style={{ fontWeight: 800, fontSize: 15 }}>Change Password</div>
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>Must be at least 6 characters</div>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  style={{ marginLeft: 'auto' }}
-                  onClick={() => setShowPw(v => !v)}
-                >
-                  <span className="mat sm">{showPw ? 'visibility_off' : 'visibility'}</span>
-                  {showPw ? 'Hide' : 'Show'}
-                </button>
-              </div>
-              <form onSubmit={handlePasswordChange} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-                <div>
-                  <div className="section-label">Current Password</div>
-                  <input
-                    className="input"
-                    type={showPw ? 'text' : 'password'}
-                    value={currentPw}
-                    onChange={e => setCurrentPw(e.target.value)}
-                    placeholder="Enter current password"
-                    required
-                  />
-                </div>
-                <div>
-                  <div className="section-label">New Password</div>
-                  <input
-                    className="input"
-                    type={showPw ? 'text' : 'password'}
-                    value={newPw}
-                    onChange={e => setNewPw(e.target.value)}
-                    placeholder="New password (min 6 chars)"
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <div>
-                  <div className="section-label">Confirm New Password</div>
-                  <input
-                    className="input"
-                    type={showPw ? 'text' : 'password'}
-                    value={confirmPw}
-                    onChange={e => setConfirmPw(e.target.value)}
-                    placeholder="Confirm new password"
-                    required
-                  />
-                </div>
-                {pwMsg && (
-                  <div style={{
-                    padding: '10px 14px', borderRadius: 'var(--r)',
-                    background: pwMsg.type === 'success' ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)',
-                    border: `1px solid ${pwMsg.type === 'success' ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.25)'}`,
-                    color: pwMsg.type === 'success' ? 'var(--green-l)' : '#f87171',
-                    fontSize: 13, fontWeight: 600,
-                  }}>
-                    {pwMsg.text}
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="submit" className="btn btn-primary" disabled={pwLoading}>
-                    <span className="mat sm">lock_reset</span>
-                    {pwLoading ? 'Updating…' : 'Update Password'}
+                {!isEditingPassword ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ marginLeft: 'auto', padding: '4px 8px', height: 'auto' }}
+                    onClick={() => setIsEditingPassword(true)}
+                  >
+                    <span className="mat sm">edit</span>
                   </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ marginLeft: 'auto' }}
+                    onClick={() => setShowPw(v => !v)}
+                  >
+                    <span className="mat sm">{showPw ? 'visibility_off' : 'visibility'}</span>
+                    {showPw ? 'Hide' : 'Show'}
+                  </button>
+                )}
+              </div>
+
+              {isEditingPassword ? (
+                <form onSubmit={handlePasswordChange} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  <div>
+                    <div className="section-label">Current Password</div>
+                    <input
+                      className="input"
+                      type={showPw ? 'text' : 'password'}
+                      value={currentPw}
+                      onChange={e => setCurrentPw(e.target.value)}
+                      placeholder="Enter current password"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <div className="section-label">New Password</div>
+                    <input
+                      className="input"
+                      type={showPw ? 'text' : 'password'}
+                      value={newPw}
+                      onChange={e => setNewPw(e.target.value)}
+                      placeholder="New password (min 6 chars)"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                  <div>
+                    <div className="section-label">Confirm New Password</div>
+                    <input
+                      className="input"
+                      type={showPw ? 'text' : 'password'}
+                      value={confirmPw}
+                      onChange={e => setConfirmPw(e.target.value)}
+                      placeholder="Confirm new password"
+                      required
+                    />
+                  </div>
+                  {pwMsg && (
+                    <div style={{
+                      padding: '10px 14px', borderRadius: 'var(--r)',
+                      background: pwMsg.type === 'success' ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)',
+                      border: `1px solid ${pwMsg.type === 'success' ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.25)'}`,
+                      color: pwMsg.type === 'success' ? 'var(--green-l)' : '#f87171',
+                      fontSize: 13, fontWeight: 600,
+                    }}>
+                      {pwMsg.text}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                    <button type="button" className="btn btn-ghost" onClick={handleCancelPasswordEdit} disabled={pwLoading}>
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={pwLoading}>
+                      <span className="mat sm">lock_reset</span>
+                      {pwLoading ? 'Updating…' : 'Update Password'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Password</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '0.2em' }}>••••••••••••</div>
+                  </div>
+                  {pwMsg && pwMsg.type === 'success' && (
+                    <div style={{
+                      padding: '10px 14px', borderRadius: 'var(--r)',
+                      background: 'rgba(34,197,94,.1)', border: '1px solid rgba(34,197,94,.25)',
+                      color: 'var(--green-l)', fontSize: 13, fontWeight: 600,
+                    }}>
+                      {pwMsg.text}
+                    </div>
+                  )}
                 </div>
-              </form>
+              )}
             </div>
 
             {/* Danger Zone */}
