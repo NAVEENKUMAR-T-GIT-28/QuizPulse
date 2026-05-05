@@ -111,7 +111,8 @@ router.delete('/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
   })
 
   if (!session) {
-    return res.status(404).json({ error: 'Session not found or you do not own it' })
+    // Already deleted or doesn't exist — return success for idempotency
+    return res.json({ message: 'Session deleted or not found' })
   }
 
   await Session.deleteOne({ _id: session._id })

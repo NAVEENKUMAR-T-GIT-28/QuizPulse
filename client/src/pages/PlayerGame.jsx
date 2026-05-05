@@ -19,9 +19,11 @@ export default function PlayerGame() {
     status, setStatus,
     timer, setTimer,
     playerId, isCorrect, setMyResult,
+    myScore,
   } = useQuizStore()
 
   const [roomStatus, setRoomStatus] = useState('checking') // 'checking' | 'valid' | 'invalid' | 'ended'
+  const [showCanceledModal, setShowCanceledModal] = useState(false)
   const [correctIndex, setCorrectIndex] = useState(null)
   const [answerConfirmed, setAnswerConfirmed] = useState(false)
   const [lastPointsEarned, setLastPointsEarned] = useState(0)
@@ -53,7 +55,32 @@ export default function PlayerGame() {
       })
   }, [roomCode, navigate])
 
-  // 2. Socket connection and events (only if room is valid)
+  // 2. Handle ended room cache restoration via effect (prevents state update during render)
+  useEffect(() => {
+    if (roomStatus !== 'ended') return
+
+    const ended = localStorage.getItem('qp_session_ended')
+    if (!ended) {
+      navigate('/join', { replace: true })
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(ended)
+      if (parsed.roomCode === roomCode) {
+        setLeaderboard(parsed.finalLeaderboard)
+        setStatus('ended')
+      } else {
+        localStorage.removeItem('qp_session_ended')
+        navigate('/join', { replace: true })
+      }
+    } catch {
+      localStorage.removeItem('qp_session_ended')
+      navigate('/join', { replace: true })
+    }
+  }, [roomStatus, roomCode, navigate, setLeaderboard, setStatus])
+
+  // 3. Socket connection and events (only if room is valid)
   useEffect(() => {
     if (roomStatus !== 'valid') return
 
@@ -125,6 +152,15 @@ export default function PlayerGame() {
       navigate('/join', { replace: true })
     }
 
+    function onSessionCanceled() {
+      setShowCanceledModal(true)
+      clearActiveSession()
+      socket.disconnect()
+      localStorage.removeItem('qp_roomCode')
+      localStorage.removeItem('qp_playerId')
+      useQuizStore.getState().resetSession()
+    }
+
     socket.on('quiz:question',   onQuestion)
     socket.on('quiz:result',     onResult)
     socket.on('timer:tick',      onTick)
@@ -133,6 +169,7 @@ export default function PlayerGame() {
     socket.on('player:joined',   onPlayerJoined)
     socket.on('connect',         onReconnect)
     socket.on('error',           onError)
+    socket.on('session_canceled', onSessionCanceled)
 
     return () => {
       socket.off('quiz:question',   onQuestion)
@@ -143,6 +180,7 @@ export default function PlayerGame() {
       socket.off('player:joined',   onPlayerJoined)
       socket.off('connect',         onReconnect)
       socket.off('error',           onError)
+      socket.off('session_canceled', onSessionCanceled)
       socket.disconnect()
     }
   }, [roomStatus, roomCode, navigate, setQuestion, setStatus, setLeaderboard, setMyResult, setTimer])
@@ -194,44 +232,26 @@ export default function PlayerGame() {
     )
   }
 
-  if (roomStatus === 'ended' || status === 'ended') {
-    // Check if we have a cached end state for this room
-    const ended = localStorage.getItem('qp_session_ended')
-    if (ended) {
-      try {
-        const parsed = JSON.parse(ended)
-        if (parsed.roomCode === roomCode) {
-          // Sync store with cache if needed (e.g. on refresh)
-          if (status !== 'ended') {
-            setLeaderboard(parsed.finalLeaderboard)
-            setStatus('ended')
-          }
-          return (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(99,102,241,.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
-              <div className="fade-up" style={{ textAlign: 'center', maxWidth: 500, padding: 24, position: 'relative', zIndex: 1 }}>
-                <span className="mat" style={{ fontSize: 64, color: 'var(--amber)', marginBottom: 16, display: 'block' }}>emoji_events</span>
-                <h1 style={{ fontSize: 32, marginBottom: 8 }}>Quiz Over!</h1>
-                <p style={{ fontSize: 16, color: 'var(--text2)', marginBottom: 32 }}>Thanks for playing</p>
-                {leaderboard.length > 0 && (
-                  <div style={{ marginBottom: 32, textAlign: 'left' }}>
-                    <Leaderboard data={leaderboard} highlightId={playerId} />
-                  </div>
-                )}
-                <button className="btn btn-primary btn-lg" onClick={handlePlayAgain}>
-                  <span className="mat">replay</span>Play Again
-                </button>
-              </div>
+  // If status is ended (either from socket event or restored from cache in useEffect)
+  if (status === 'ended') {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(99,102,241,.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div className="fade-up" style={{ textAlign: 'center', maxWidth: 500, padding: 24, position: 'relative', zIndex: 1 }}>
+          <span className="mat" style={{ fontSize: 64, color: 'var(--amber)', marginBottom: 16, display: 'block' }}>emoji_events</span>
+          <h1 style={{ fontSize: 32, marginBottom: 8 }}>Quiz Over!</h1>
+          <p style={{ fontSize: 16, color: 'var(--text2)', marginBottom: 32 }}>Thanks for playing</p>
+          {leaderboard.length > 0 && (
+            <div style={{ marginBottom: 32, textAlign: 'left' }}>
+              <Leaderboard data={leaderboard} highlightId={playerId} />
             </div>
-          )
-        }
-      } catch {
-        localStorage.removeItem('qp_session_ended')
-      }
-    }
-    // No cache or invalid cache, redirect to join
-    navigate('/join', { replace: true })
-    return null
+          )}
+          <button className="btn btn-primary btn-lg" onClick={handlePlayAgain}>
+            <span className="mat">replay</span>Play Again
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // Normal game rendering (status === 'valid')
@@ -257,12 +277,19 @@ export default function PlayerGame() {
         )}
         <div className="topbar-right">
           <ThemeToggle />
-          {timer !== null && status === 'live' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.05)', border: '1px solid var(--border2)', borderRadius: 'var(--r)', padding: '6px 12px' }}>
-              <span className="mat sm" style={{ color: timer <= 5 ? 'var(--red)' : 'var(--indigo-l)' }}>timer</span>
-              <span className="mono" style={{ fontSize: 16, fontWeight: 900, color: timer <= 5 ? 'var(--red)' : 'var(--indigo-l)' }}>{timer}</span>
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {status === 'live' || status === 'revealing' ? (
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', background: 'rgba(255,255,255,.05)', padding: '6px 12px', borderRadius: 'var(--r)', border: '1px solid var(--border2)' }}>
+                {myScore.toLocaleString()} pts
+              </div>
+            ) : null}
+            {timer !== null && status === 'live' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.05)', border: '1px solid var(--border2)', borderRadius: 'var(--r)', padding: '6px 12px' }}>
+                <span className="mat sm" style={{ color: timer <= 5 ? 'var(--red)' : 'var(--indigo-l)' }}>timer</span>
+                <span className="mono" style={{ fontSize: 16, fontWeight: 900, color: timer <= 5 ? 'var(--red)' : 'var(--indigo-l)' }}>{timer}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -329,6 +356,26 @@ export default function PlayerGame() {
           </>
         )}
       </div>
+
+      {/* Canceled Modal */}
+      {showCanceledModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass fade-up" style={{ maxWidth: 400, width: '90%', padding: '32px 24px', textAlign: 'center', borderRadius: 'var(--r2)' }}>
+            <div style={{ marginBottom: 16 }}>
+              <span className="mat xl" style={{ color: 'var(--amber)', fontSize: 48 }}>info</span>
+            </div>
+            <h2 style={{ fontSize: 20, marginBottom: 12 }}>Session Canceled</h2>
+            <p style={{ color: 'var(--text2)', marginBottom: 24, fontSize: 14 }}>
+              The host has canceled this quiz session. You will be redirected to the join screen.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button className="btn btn-primary" onClick={() => navigate('/join')}>
+                Okay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

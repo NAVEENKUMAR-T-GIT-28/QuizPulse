@@ -111,16 +111,20 @@ export default function HostLobby() {
     navigator.clipboard.writeText(url).catch(() => { })
   }
 
-  async function handleCancelSession() {
+  function handleCancelSession() {
     try {
+      // 1. Clean up local state immediately
       clearActiveSession()
+      
+      // 2. Emit cancel — the server handler deletes the session from DB 
+      //    and notifies all players in one atomic flow.
       socket.emit('host:cancel', { roomCode })
-      if (sessionId) {
-        await deleteSession(sessionId)
-      }
+      
+      // 3. Disconnect and leave
       socket.disconnect()
       navigate('/dashboard')
     } catch (err) {
+      console.error('Cancellation error:', err)
       alert('Failed to cancel session.')
     }
   }
