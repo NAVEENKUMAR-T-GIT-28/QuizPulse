@@ -160,8 +160,10 @@ router.delete('/account', authMiddleware, async (req, res) => {
     if (!isMatch) return res.status(401).json({ error: 'Incorrect password' })
 
     // 1. Delete all Quizzes owned by this user
-    // Note: Quiz model has a post-delete hook that removes associated sessions,
-    // but we'll also explicitly delete sessions tied to hostId for safety.
+    // NOTE: Quiz.deleteMany does NOT trigger the post('findOneAndDelete') hook
+    // that normally cascades session deletion. The explicit Session.deleteMany
+    // below is intentional and MUST NOT be removed — it is the only thing
+    // preventing orphaned session documents after account deletion.
     await Quiz.deleteMany({ hostId: user._id })
     await Session.deleteMany({ hostId: user._id })
 

@@ -1,5 +1,12 @@
 require('dotenv').config()
 
+const REQUIRED_ENV = ['JWT_SECRET', 'MONGODB_URI', 'PORT']
+const missing = REQUIRED_ENV.filter(key => !process.env[key])
+if (missing.length > 0) {
+  console.error(`Missing required environment variables: ${missing.join(', ')}`)
+  process.exit(1)
+}
+
 const express    = require('express')
 const http       = require('http')
 const { Server } = require('socket.io')

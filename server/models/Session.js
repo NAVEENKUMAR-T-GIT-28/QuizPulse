@@ -3,7 +3,8 @@ const mongoose = require('mongoose')
 const PlayerSchema = new mongoose.Schema({
   playerId: { type: String, required: true },
   name:     { type: String, required: true, trim: true },
-  score:    { type: Number, default: 0 }
+  score:    { type: Number, default: 0 },
+  active:   { type: Boolean, default: true }
 }, { _id: false })
 
 const ResponseSchema = new mongoose.Schema({

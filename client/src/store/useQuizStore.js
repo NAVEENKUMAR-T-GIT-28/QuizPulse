@@ -44,8 +44,9 @@ const useQuizStore = create((set) => ({
   setPlayerName:  (playerName) => set({ playerName }),
   resetSession:   () => set({
     roomCode: null, sessionId: null, status: 'idle',
-    currentQuestion: null, votes: [], leaderboard: [],
-    players: [], myAnswer: null, isCorrect: null, timer: null, myScore: 0,
+    questions: [], currentIndex: 0, currentQuestion: null,
+    votes: [], leaderboard: [], players: [],
+    myAnswer: null, isCorrect: null, timer: null, myScore: 0,
   }),
 }))
 

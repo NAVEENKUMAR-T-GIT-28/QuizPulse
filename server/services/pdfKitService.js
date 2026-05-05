@@ -60,7 +60,7 @@ function pageHeader(doc, quizTitle, rightText) {
   const y = 22
   doc.fontSize(11).font('Helvetica-Bold').fillColor(C.purple).text('QuizPulse', ML, y)
   doc.fontSize(10).font('Helvetica').fillColor(C.hint)
-     .text(`${quizTitle}  ·  ${rightText}`, ML, y, { align: 'right', width: CW })
+     .text(`${quizTitle}  |  ${rightText}`, ML, y, { align: 'right', width: CW })
   doc.moveTo(ML, y + 16).lineTo(W - MR, y + 16).strokeColor(C.border).lineWidth(0.5).stroke()
 }
 
@@ -105,7 +105,7 @@ function drawCover(doc, { session, quiz, avgAccuracy, avgScore, dateStr, timeStr
     `Room ${session.roomCode}`,
     quiz.description || null,
   ].filter(Boolean)
-  doc.text(metaParts.join('   ·   '), ML, y, { width: CW })
+  doc.text(metaParts.join('   |   '), ML, y, { width: CW })
   y += 28
 
   // 4 stat pills
@@ -159,7 +159,20 @@ function drawPodium(doc, top3, x, y, w, maxH) {
 
     // Crown for 1st
     if (crowns[slotIdx]) {
-      doc.fontSize(16).fillColor(C.amber).text('♛', sx - 10, by - 72)
+      const cx = sx - 10
+      const cy = by - 72
+      // Draw a simple 3-pointed crown shape
+      doc.save()
+         .moveTo(cx, cy + 8)
+         .lineTo(cx, cy)
+         .lineTo(cx + 5, cy + 4)
+         .lineTo(cx + 10, cy)
+         .lineTo(cx + 15, cy + 4)
+         .lineTo(cx + 20, cy)
+         .lineTo(cx + 20, cy + 8)
+         .closePath()
+         .fill(C.amber)
+         .restore()
     }
 
     // Avatar circle
@@ -287,7 +300,7 @@ function drawQuestion(doc, { q, quiz, questionStats, pageNum, totalPages }) {
   y += 20
 
   // Correct answer tag
-  const tagText = `✓  Correct answer: ${q.options[q.correctIndex]}   ·   ${q.correctRate}% got it right`
+  const tagText = `Correct answer: ${q.options[q.correctIndex]}  |  ${q.correctRate}% got it right`
   const tagW = Math.min(doc.widthOfString(tagText, { fontSize: 10 }) + 28, CW)
   roundedRect(doc, ML, y, tagW, 24, 12, C.greenBg, '#A7F3D0')
   doc.fontSize(10).font('Helvetica-Bold').fillColor(C.green)
@@ -349,7 +362,7 @@ function drawLeaderboard(doc, { quiz, session, leaderboard, dateStr, totalPages 
   doc.fontSize(22).font('Helvetica-Bold').fillColor(C.dark).text('Leaderboard', ML, y)
   y += 28
   doc.fontSize(11).font('Helvetica').fillColor(C.muted)
-     .text(`${leaderboard.length} participants  ·  ${quiz.questions.length} questions  ·  Room ${session.roomCode}`, ML, y)
+     .text(`${leaderboard.length} participants  |  ${quiz.questions.length} questions  |  Room ${session.roomCode}`, ML, y)
   y += 24
 
   // Podium top 3

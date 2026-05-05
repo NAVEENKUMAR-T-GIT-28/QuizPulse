@@ -81,34 +81,58 @@ router.get('/:sessionId', authMiddleware, puppeteerLimiter, async (req, res) => 
 
     const { session, quiz } = result
 
-    try {
-      const pdf = await generateSessionPDF(session, quiz)
-      return sendPDF(res, pdf, buildFilename(session))
-    } catch (puppeteerErr) {
-      console.error(`PDF export [Puppeteer] failed [session=${req.params.sessionId}]:`, puppeteerErr)
+    // Gate Puppeteer based on environment variable (resilient parsing)
+    const USE_PUPPETEER = String(process.env.ENABLE_PUPPETEER).trim().toLowerCase() === 'true'
 
-      // Detect OOM / crash (Puppeteer-specific error messages)
-      const isOOM = (
-        puppeteerErr.message?.includes('out of memory') ||
-        puppeteerErr.message?.includes('ENOMEM') ||
-        puppeteerErr.message?.includes('TargetCloseError') ||
-        puppeteerErr.message?.includes('Protocol error') ||
-        puppeteerErr.message?.includes('crashed') ||
-        puppeteerErr.code === 'ERR_OUT_OF_MEMORY'
-      )
+    if (USE_PUPPETEER) {
+      console.log(`[DEBUG] Attempting Puppeteer export for session ${req.params.sessionId}`)
+      try {
+        const pdf = await generateSessionPDF(session, quiz)
+        console.log(`[DEBUG] Puppeteer export successful`)
+        return sendPDF(res, pdf, buildFilename(session))
+      } catch (puppeteerErr) {
+        console.error(`[DEBUG] PDF export [Puppeteer] failed:`, puppeteerErr)
+        
+        // Check for common "missing browser" errors
+        const isMissingBrowser = (
+          puppeteerErr.message?.includes('Could not find Chromium') ||
+          puppeteerErr.message?.includes('executable') ||
+          puppeteerErr.message?.includes('ENOENT')
+        )
 
-      if (isOOM) {
-        // Tell the client: Puppeteer failed, offer the fallback choice
-        return res.status(503).json({
-          error:     'pdf_quality_failed',
-          message:   'High-quality PDF generation failed due to server memory constraints.',
-          fallbackAvailable: true,
-        })
+        if (isMissingBrowser) {
+           console.warn(`[WARNING] Puppeteer is enabled but Chromium binary is missing. Falling back to PDFKit. Run "npm install" in server directory to download Chromium.`)
+        }
+
+        const isOOM = (
+          puppeteerErr.message?.includes('out of memory') ||
+          puppeteerErr.message?.includes('ENOMEM') ||
+          puppeteerErr.message?.includes('TargetCloseError') ||
+          puppeteerErr.message?.includes('Protocol error') ||
+          puppeteerErr.message?.includes('crashed') ||
+          puppeteerErr.code === 'ERR_OUT_OF_MEMORY'
+        )
+
+        if (isOOM) {
+          return res.status(503).json({
+            error:     'pdf_quality_failed',
+            message:   'High-quality PDF generation failed due to server memory constraints.',
+            fallbackAvailable: true,
+          })
+        }
+        console.log(`[DEBUG] Falling back to PDFKit due to Puppeteer error: ${puppeteerErr.message}`)
       }
-
-      // Unknown error — generic 500
-      return res.status(500).json({ error: 'Failed to generate PDF' })
+    } else {
+      console.log(`[DEBUG] Puppeteer disabled via ENABLE_PUPPETEER env var. Using PDFKit.`)
     }
+
+    // Fallback path: If Puppeteer is disabled OR failed (and wasn't OOM handled above)
+    // We can either return error or automatically trigger fallback. 
+    // Instructions say: "If USE_PUPPETEER { ... } else { go straight to pdfKitService }"
+    
+    const pdf = await generateFallbackPDF(session, quiz)
+    return sendPDF(res, pdf, buildFilename(session, '-simple'))
+
   } catch (err) {
     console.error(`PDF export error [session=${req.params.sessionId}]:`, err)
     res.status(500).json({ error: 'Failed to generate PDF' })

@@ -5,16 +5,34 @@ const Quiz = require('../models/Quiz')
 const { processReveal, buildLeaderboard, getVoteStats } = require('../services/quizService')
 
 /**
- * In-memory stores for the duration of a live session
- * These reset on server restart — that's fine, session data is in MongoDB
+ * In-memory stores for the duration of a live session.
+ *
+ * IMPORTANT: These are process-local. If the server restarts mid-session
+ * or runs behind a load balancer with multiple instances, live session
+ * state will be lost or inconsistent.
+ *
+ * To support multi-instance deployments, replace these maps with a
+ * Redis store (e.g. ioredis + socket.io-redis adapter):
+ *   1. Add `socket.io-redis` adapter for socket room broadcasting.
+ *   2. Move `liveVotes` and `roomTimers` to Redis with TTL.
+ *   3. Move `roomHosts` to Redis as `roomCode → socketId` hash.
  */
-const liveVotes = {}   // { "ROOMCODE": { qIndex: [0, 0, 0, 0] } }
-const roomHosts = {}   // { "ROOMCODE": socketId }
-const roomTimers = {}   // { "ROOMCODE": timeoutRef }
-const roomIntervals = {} // { "ROOMCODE": intervalRef }
+const liveVotes = {}      // { "ROOMCODE": { qIndex: [0, 0, 0, 0] } }
+const roomHosts = {}      // { "ROOMCODE": socketId }
+const roomTimers = {}     // { "ROOMCODE": timeoutRef }
+const roomIntervals = {}  // { "ROOMCODE": intervalRef }
 const lastAnswerTime = {} // { socketId: timestamp } — answer throttle
-const roomEnded = {}  // { "ROOMCODE": true } — set on quiz:end, checked in interval
+const roomEnded = {}      // { "ROOMCODE": true } — set on quiz:end, checked in interval
 const MAX_PLAYERS_PER_ROOM = 100
+
+/**
+ * Defense-in-depth host authorization.
+ * Checks both the socket's own metadata (set at host:join after JWT verification)
+ * AND the in-memory roomHosts map. Both must agree.
+ */
+function isHost(socket, code) {
+  return socket.data.isHost === true && roomHosts[code] === socket.id
+}
 
 /**
  * Verify the JWT from socket handshake auth and return the decoded payload,
@@ -77,24 +95,33 @@ function initQuizSocket(io) {
           return socket.emit('error', { message: 'This session has already ended' })
         }
 
-        if (session.players.length >= MAX_PLAYERS_PER_ROOM) {
+        const activePlayers = session.players.filter(p => p.active !== false)
+        if (activePlayers.length >= MAX_PLAYERS_PER_ROOM) {
           return socket.emit('error', { message: `This room is full (max ${MAX_PLAYERS_PER_ROOM} players)` })
         }
 
-        // Prevent duplicate players (reconnect case) atomically
-        let updatedSession = await Session.findOneAndUpdate(
-          { roomCode: code, 'players.playerId': { $ne: playerId } },
-          { $push: { players: { playerId, name: trimmedName, score: 0 } } },
-          { new: true }
-        )
+        // Check if player already exists in the session (reconnect case)
+        const existingPlayer = session.players.find(p => p.playerId === playerId)
 
-        // If updatedSession is null, they were already in the array, so just fetch the session again
-        if (!updatedSession) {
-          updatedSession = await Session.findOne({ roomCode: code })
+        if (existingPlayer) {
+          // Reconnecting player — reactivate them, preserve their score
+          await Session.findOneAndUpdate(
+            { roomCode: code, 'players.playerId': playerId },
+            { $set: { 'players.$.active': true, 'players.$.name': trimmedName } }
+          )
+          session = await Session.findOne({ roomCode: code })
+        } else {
+          // New player — push with active: true
+          let updatedSession = await Session.findOneAndUpdate(
+            { roomCode: code, 'players.playerId': { $ne: playerId } },
+            { $push: { players: { playerId, name: trimmedName, score: 0, active: true } } },
+            { new: true }
+          )
+          if (!updatedSession) {
+            updatedSession = await Session.findOne({ roomCode: code })
+          }
+          session = updatedSession
         }
-
-        // We use updatedSession for the rest of the logic
-        session = updatedSession
 
         // Join the socket room
         socket.join(code)
@@ -121,24 +148,27 @@ function initQuizSocket(io) {
           }
         }
 
-        // Tell the player they're in
+        // Tell the player they're in (include their preserved score on reconnect)
+        const playerEntry = session.players.find(p => p.playerId === playerId)
         socket.emit('player:joined', {
           roomCode: code,
           quizTitle: quiz?.title || '',
           status: session.status,
-          currentQuestion, // null if waiting/ended, populated if live/revealing
+          currentQuestion,
+          score: playerEntry?.score || 0,
         })
 
-        // Update host with new player list
+        // Update host with active player list only
+        const activeList = session.players.filter(p => p.active !== false)
         const hostSocketId = roomHosts[code]
         if (hostSocketId) {
           io.to(hostSocketId).emit('room:players', {
-            count: session.players.length,
-            players: session.players.map((p) => ({ name: p.name, id: p.playerId })),
+            count: activeList.length,
+            players: activeList.map((p) => ({ name: p.name, id: p.playerId })),
           })
         }
 
-        console.log(`Player "${trimmedName}" joined room ${code}`)
+        console.log(`Player "${trimmedName}" ${existingPlayer ? 'reconnected to' : 'joined'} room ${code}`)
       } catch (err) {
         console.error('player:join error:', err)
         socket.emit('error', { message: 'Failed to join room' })
@@ -147,6 +177,7 @@ function initQuizSocket(io) {
 
     // ─────────────────────────────────────────────
     // PLAYER: Leave a room explicitly
+    // Mark as inactive instead of removing — preserves score for reconnection
     // ─────────────────────────────────────────────
     socket.on('player:leave', async ({ roomCode, playerId }) => {
       try {
@@ -155,21 +186,22 @@ function initQuizSocket(io) {
         
         socket.leave(code)
 
-        // Remove player from session
+        // Mark player as inactive (don't remove — preserves score)
         const session = await Session.findOneAndUpdate(
-          { roomCode: code },
-          { $pull: { players: { playerId } } },
+          { roomCode: code, 'players.playerId': playerId },
+          { $set: { 'players.$.active': false } },
           { new: true }
         )
 
         if (session) {
-          console.log(`Player left room ${code}`)
-          // Update host with new player list
+          console.log(`Player left room ${code} (marked inactive)`)
+          // Update host with active player list only
+          const activeList = session.players.filter(p => p.active !== false)
           const hostSocketId = roomHosts[code]
           if (hostSocketId) {
             io.to(hostSocketId).emit('room:players', {
-              count: session.players.length,
-              players: session.players.map((p) => ({ name: p.name, id: p.playerId })),
+              count: activeList.length,
+              players: activeList.map((p) => ({ name: p.name, id: p.playerId })),
             })
           }
         }
@@ -249,7 +281,7 @@ function initQuizSocket(io) {
         const session = await Session.findOne({ roomCode: code })
 
         if (!session || session.status !== 'waiting') return
-        if (roomHosts[code] !== socket.id) return  // only host can start
+        if (!isHost(socket, code)) return  // only host can start
 
         const quiz = await Quiz.findById(session.quizId)
         if (!quiz || quiz.questions.length === 0) {
@@ -373,7 +405,7 @@ function initQuizSocket(io) {
     socket.on('quiz:reveal', async ({ roomCode }) => {
       try {
         const code = roomCode?.toUpperCase()
-        if (roomHosts[code] !== socket.id) return
+        if (!isHost(socket, code)) return
 
         const session = await Session.findOne({ roomCode: code })
         if (!session || session.status !== 'live') return
@@ -412,7 +444,7 @@ function initQuizSocket(io) {
     socket.on('quiz:next', async ({ roomCode }) => {
       try {
         const code = roomCode?.toUpperCase()
-        if (roomHosts[code] !== socket.id) return
+        if (!isHost(socket, code)) return
 
         const session = await Session.findOne({ roomCode: code })
         if (!session || session.status !== 'revealing') return
@@ -462,7 +494,7 @@ function initQuizSocket(io) {
     socket.on('quiz:end', async ({ roomCode }) => {
       try {
         const code = roomCode?.toUpperCase()
-        if (roomHosts[code] !== socket.id) return
+        if (!isHost(socket, code)) return
 
         roomEnded[code] = true      // set flag immediately
         clearQuestionTimer(code)    // belt-and-suspenders (cleanupRoom will also clear)
@@ -491,15 +523,22 @@ function initQuizSocket(io) {
 
     // ─────────────────────────────────────────────
     // HOST: Cancel the session entirely
+    // Broadcasts cancellation to players first, then deletes
+    // the session from DB and cleans up in-memory state.
     // ─────────────────────────────────────────────
-    socket.on('host:cancel', ({ roomCode }) => {
+    socket.on('host:cancel', async ({ roomCode }) => {
       try {
         const code = roomCode?.toUpperCase()
-        if (roomHosts[code] !== socket.id) return
+        if (!isHost(socket, code)) return
 
+        // Notify players before deleting — they need the event to redirect
         io.to(code).emit('session_canceled')
+
+        // Delete the session from the database entirely
+        await Session.deleteOne({ roomCode: code })
+
         cleanupRoom(io, code)
-        console.log(`Session canceled in room ${code}`)
+        console.log(`Session canceled and deleted in room ${code}`)
       } catch (err) {
         console.error('host:cancel error:', err)
       }

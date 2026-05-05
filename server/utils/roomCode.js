@@ -1,11 +1,13 @@
-// Generates a random 6-char uppercase room code
+// Generates a random 6-char uppercase room code using crypto-safe randomness
+const { randomBytes } = require('crypto')
+
+const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // Removed easily confused chars like I, 1, O, 0
+
 const generateRoomCode = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // Removed easily confused chars like I, 1, O, 0
-  let code = ''
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return code
+  const bytes = randomBytes(6)
+  return Array.from(bytes)
+    .map(b => CHARS[b % CHARS.length])
+    .join('')
 }
 
 module.exports = generateRoomCode
