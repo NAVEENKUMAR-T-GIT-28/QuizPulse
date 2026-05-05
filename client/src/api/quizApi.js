@@ -12,9 +12,22 @@ const api = axios.create({
 })
 
 // ─── Auth ──────────────────────────────────────────────────────────
-export async function register(name, email, password) {
-  const { data } = await api.post('/api/auth/register', { name, email, password })
+/** Step 1: validate details + send OTP to email */
+export async function registerInitiate(name, email, password) {
+  const { data } = await api.post('/api/auth/register/initiate', { name, email, password })
+  return data   // { message }
+}
+
+/** Step 2: verify OTP — on success returns { user } and sets auth cookie */
+export async function registerVerify(email, otp) {
+  const { data } = await api.post('/api/auth/register/verify', { email, otp })
   return data   // { user }
+}
+
+/** Resend a fresh OTP to an email with a pending registration */
+export async function registerResend(email) {
+  const { data } = await api.post('/api/auth/register/resend', { email })
+  return data   // { message }
 }
 
 export async function login(email, password) {
