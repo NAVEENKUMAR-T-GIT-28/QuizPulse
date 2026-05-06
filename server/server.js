@@ -51,7 +51,7 @@ const apiLimiter = rateLimit({
 })
 
 // ─────────────────────────────────────────────
-// Socket.io setup
+// Socket.io setup + optional Redis adapter
 // ─────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
@@ -60,6 +60,31 @@ const io = new Server(server, {
     credentials: true,
   },
 })
+
+// Wire up the Redis adapter for multi-instance deployments.
+// When REDIS_URL is set, socket.io fan-out (io.to(room).emit) works across
+// all server instances. When REDIS_URL is absent, the built-in in-process
+// adapter is used automatically — no code change needed.
+if (process.env.REDIS_URL) {
+  try {
+    const { createAdapter } = require('@socket.io/redis-adapter')
+    const { createClient }  = require('redis')
+
+    const pubClient = createClient({ url: process.env.REDIS_URL })
+    const subClient = pubClient.duplicate()
+
+    Promise.all([pubClient.connect(), subClient.connect()])
+      .then(() => {
+        io.adapter(createAdapter(pubClient, subClient))
+        console.log('[Socket.IO] Redis adapter connected')
+      })
+      .catch(err => {
+        console.error('[Socket.IO] Redis adapter failed — using in-process adapter:', err.message)
+      })
+  } catch (err) {
+    console.error('[Socket.IO] @socket.io/redis-adapter not installed — using in-process adapter:', err.message)
+  }
+}
 
 initQuizSocket(io)
 
