@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Component } from 'react'
 import ProtectedRoute   from './components/ProtectedRoute'
 import LandingPage      from './pages/LandingPage'
 import AuthPage         from './pages/AuthPage'
@@ -13,6 +14,58 @@ import ResultsPage      from './pages/ResultsPage'
 import HistoryPage      from './pages/HistoryPage'
 import ProfilePage      from './pages/ProfilePage'
 import useSessionGuard  from './hooks/useSessionGuard'
+import Background       from './components/backgroud/backgroud'
+
+/**
+ * ErrorBoundary
+ *
+ * Catches any render error in the component tree and shows a plain
+ * recovery screen instead of a blank white page.
+ * Must be a class component — React has no hook equivalent for
+ * componentDidCatch / getDerivedStateFromError.
+ */
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, message: '' }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, message: error?.message || 'Unknown error' }
+  }
+
+  componentDidCatch(error, info) {
+    console.error('[ErrorBoundary] Caught render error:', error, info)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          flex: 1, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: 16, padding: 24, textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 48 }}>⚠️</div>
+          <h2 style={{ margin: 0, fontSize: 20 }}>Something went wrong</h2>
+          <p style={{ color: 'var(--text2)', maxWidth: 340, margin: 0, fontSize: 14 }}>
+            {this.state.message}
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              this.setState({ hasError: false, message: '' })
+              window.location.href = '/'
+            }}
+          >
+            Go to home screen
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 /**
  * AppRoutes
@@ -62,8 +115,11 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Background />
+        <AppRoutes />
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }

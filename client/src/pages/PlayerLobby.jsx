@@ -19,12 +19,33 @@ export default function PlayerLobby() {
 
   function handleExit() {
     clearActiveSession()
-    socket.emit('player:leave', { roomCode, playerId })
-    socket.disconnect()
-    localStorage.removeItem('qp_roomCode')
-    localStorage.removeItem('qp_playerId')
-    resetSession()
-    navigate('/join')
+
+    let finished = false
+    const finalize = () => {
+      if (finished) return
+      finished = true
+      try { socket.disconnect() } catch (e) {}
+      localStorage.removeItem('qp_roomCode')
+      localStorage.removeItem('qp_playerId')
+      resetSession()
+      navigate('/join')
+    }
+
+    try {
+      if (socket && socket.connected) {
+        // Request server to mark player inactive, then disconnect when ack'd.
+        // Fallback timeout in case the ack doesn't arrive.
+        socket.emit('player:leave', { roomCode, playerId }, (res) => {
+          finalize()
+        })
+        setTimeout(finalize, 2000)
+      } else {
+        finalize()
+      }
+    } catch (err) {
+      console.error('handleExit error:', err)
+      finalize()
+    }
   }
 
   useEffect(() => {
