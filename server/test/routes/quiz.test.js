@@ -54,6 +54,49 @@ describe('POST /api/quiz', () => {
 
     expect(res.status).toBe(401)
   })
+
+  it('returns 400 when quiz exceeds 25 questions', async () => {
+    const questions = Array.from({ length: 26 }, (_, i) => ({
+      text: `Question ${i + 1}?`,
+      options: ['A', 'B'],
+      correctIndex: 0,
+      timeLimit: 10,
+    }))
+    const res = await request(app)
+      .post('/api/quiz')
+      .set('Cookie', cookie)
+      .send({ title: 'Too Long', questions })
+
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/25/i)
+  })
+
+  it('returns 400 when an option is an empty string', async () => {
+    const res = await request(app)
+      .post('/api/quiz')
+      .set('Cookie', cookie)
+      .send({
+        title: 'Bad Options',
+        questions: [{ text: 'Q?', options: ['A', ''], correctIndex: 0, timeLimit: 10 }]
+      })
+
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/non-empty/i)
+  })
+
+  it('returns 400 when an option exceeds 200 characters', async () => {
+    const longOption = 'x'.repeat(201)
+    const res = await request(app)
+      .post('/api/quiz')
+      .set('Cookie', cookie)
+      .send({
+        title: 'Long Option Quiz',
+        questions: [{ text: 'Q?', options: ['A', longOption], correctIndex: 0, timeLimit: 10 }]
+      })
+
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/200/i)
+  })
 })
 
 describe('GET /api/quiz', () => {

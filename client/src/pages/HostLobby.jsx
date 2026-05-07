@@ -101,7 +101,6 @@ export default function HostLobby() {
     }
   }, [roomCode, setPlayers, navigate, authChecked])
 
-
   const activePlayers = players.filter(p => p.active !== false)
    
   function handleStart() {

@@ -147,8 +147,25 @@ describe('player:join', () => {
       playerId:   'player-uuid-4',
     })
 
+    // Ended sessions emit quiz:ended (with final leaderboard), not an error
+    const data = await waitFor(client, 'quiz:ended')
+    expect(data).toBeDefined()
+    client.disconnect()
+  })
+
+  it('rejects an oversized playerId (>64 chars)', async () => {
+    const { session } = await seedSession()
+    const client = createClient()
+    client.connect()
+
+    client.emit('player:join', {
+      roomCode:   session.roomCode,
+      playerName: 'Attacker',
+      playerId:   'x'.repeat(65),
+    })
+
     const err = await waitFor(client, 'error')
-    expect(err.message).toMatch(/ended/i)
+    expect(err.message).toMatch(/invalid player id/i)
     client.disconnect()
   })
 })
@@ -230,6 +247,31 @@ describe('full quiz flow', () => {
     expect(received).toBe(false)
 
     rogue.disconnect()
+  })
+
+  it('prevents double-start from a rapid second quiz:start event', async () => {
+    const { session, token } = await seedSession()
+    const host = createClient({ auth: { token } })
+    host.connect()
+
+    host.emit('host:join', { roomCode: session.roomCode })
+    await waitFor(host, 'host:joined')
+
+    // Fire two quiz:start events back-to-back before the first DB write resolves
+    host.emit('quiz:start', { roomCode: session.roomCode })
+    host.emit('quiz:start', { roomCode: session.roomCode })
+
+    // Wait for the question to arrive
+    const question = await waitFor(host, 'quiz:question', 3000)
+    expect(question.index).toBe(0)
+
+    // Confirm the session is 'live' exactly once in the DB
+    const dbSession = await Session.findOne({ roomCode: session.roomCode })
+    expect(dbSession.status).toBe('live')
+    expect(dbSession.currentIndex).toBe(0)
+
+    host.emit('quiz:end', { roomCode: session.roomCode })
+    host.disconnect()
   })
 })
 

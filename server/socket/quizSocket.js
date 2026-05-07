@@ -74,7 +74,7 @@ function initQuizSocket(io) {
       try {
         if (!roomCode || !playerName || !playerId) return
 
-        // Validate playerId — must be a non-empty string under 64 chars
+        // Validate playerId — must be a non-empty string under 100 chars
         if (typeof playerId !== 'string' || playerId.trim().length === 0 || playerId.length > 100) {
           return socket.emit('error', { message: 'Invalid player ID' })
         }
