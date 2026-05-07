@@ -74,6 +74,11 @@ function initQuizSocket(io) {
       try {
         if (!roomCode || !playerName || !playerId) return
 
+        // Validate playerId — must be a non-empty string under 64 chars
+        if (typeof playerId !== 'string' || playerId.trim().length === 0 || playerId.length > 100) {
+          return socket.emit('error', { message: 'Invalid player ID' })
+        }
+
         const trimmedName = sanitizeHtml(playerName.trim(), {
           allowedTags: [],
           allowedAttributes: {}
@@ -296,22 +301,24 @@ function initQuizSocket(io) {
     socket.on('quiz:start', async ({ roomCode }) => {
       try {
         const code = roomCode?.toUpperCase()
-        const session = await Session.findOne({ roomCode: code })
+        if (!isHost(socket, code)) return
 
-        if (!session || session.status !== 'waiting') return
-        if (!isHost(socket, code)) return  // only host can start
+        // Atomically transition status from 'waiting' → 'live'.
+        // The status filter ensures only one concurrent call succeeds —
+        // if two quiz:start events fire simultaneously, only one will match
+        // the 'waiting' document; the other gets null and exits silently.
+        const session = await Session.findOneAndUpdate(
+          { roomCode: code, status: 'waiting' },
+          { $set: { status: 'live', currentIndex: 0, startedAt: new Date(), questionOpenedAt: new Date() } },
+          { new: true }
+        )
+
+        if (!session) return  // already started, or room doesn't exist
 
         const quiz = await Quiz.findById(session.quizId)
         if (!quiz || quiz.questions.length === 0) {
           return socket.emit('error', { message: 'Quiz has no questions' })
         }
-
-        // Update session state
-        session.status = 'live'
-        session.currentIndex = 0
-        session.startedAt = new Date()
-        session.questionOpenedAt = new Date()
-        await session.save()
 
         // Init vote tracker for question 0
         const q = quiz.questions[0]

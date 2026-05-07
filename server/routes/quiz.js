@@ -20,6 +20,9 @@ function validateQuizPayload({ title, questions }) {
   if (!Array.isArray(questions) || questions.length === 0) {
     errors.push('At least one question is required')
   }
+  if (Array.isArray(questions) && questions.length > 25) {
+    errors.push('Quiz cannot exceed 25 questions')
+  }
 
   questions?.forEach((q, i) => {
     const label = `Question ${i + 1}`
@@ -93,6 +96,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
   if (questions !== undefined) {
     if (!Array.isArray(questions) || questions.length === 0) {
       errors.push('At least one question is required')
+    } else if (questions.length > 25) {
+      errors.push('Quiz cannot exceed 25 questions')
     } else {
       questions.forEach((q, i) => {
         const label = `Question ${i + 1}`

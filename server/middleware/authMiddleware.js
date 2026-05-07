@@ -3,15 +3,10 @@
 const jwt = require('jsonwebtoken')
 
 const authMiddleware = (req, res, next) => {
-  // 1. Prefer the httpOnly cookie (post-migration)
-  // 2. Fall back to Authorization header so existing API clients keep working
-  //    during the transition period. Remove the header fallback once all
-  //    clients have migrated.
-  const token =
-    req.cookies?.token ||
-    (req.headers.authorization?.startsWith('Bearer ')
-      ? req.headers.authorization.split(' ')[1]
-      : null)
+  // Read JWT exclusively from the httpOnly cookie set at login/register.
+  // The Bearer token / Authorization header fallback has been removed —
+  // the cookie-only migration is complete.
+  const token = req.cookies?.token
 
   if (!token) {
     return res.status(401).json({ error: 'No token provided' })
