@@ -101,7 +101,13 @@ export default function HostLobby() {
     }
   }, [roomCode, setPlayers, navigate, authChecked])
 
+
+  const activePlayers = players.filter(p => p.active !== false)
+   
   function handleStart() {
+    if (activePlayers.length === 0) {
+      return alert('At least one player must be in the room before starting the quiz.')
+    }
     socket.emit('quiz:start', { roomCode })
     // Navigation happens when server broadcasts quiz:question (handled in useEffect)
   }
@@ -148,7 +154,7 @@ export default function HostLobby() {
         <button
           className="btn btn-primary btn-sm"
           onClick={handleStart}
-          disabled={players.length === 0}
+          disabled={activePlayers.length === 0}
         >
           <span className="mat sm">play_arrow</span><span className="topbar-back-text">Start Quiz</span>
         </button>
@@ -209,47 +215,51 @@ export default function HostLobby() {
               </div>
 
               {/* Players */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <div className="section-label" style={{ marginBottom: 0 }}>Players</div>
-                <span className="badge badge-indigo">{players.length} joined</span>
-              </div>
+              {(() => {
+                const activePlayers = players.filter(p => p.active !== false)
+                return (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                      <div className="section-label" style={{ marginBottom: 0 }}>Players</div>
+                      <span className="badge badge-indigo">{activePlayers.length} joined</span>
+                    </div>
 
-              {players.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
-                  <div className="dots" style={{ marginBottom: 16 }}>
-                    <div className="dot" /><div className="dot" /><div className="dot" />
-                  </div>
-                  <p>Waiting for players to join...</p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 10 }}>
-                  {players.map((player, idx) => {
-                    const c = AVATAR_COLORS[idx % AVATAR_COLORS.length]
-                    const playerName = player.name || player.playerName || 'Player'
-                    const isActive = player.active !== false
-                    return (
-                      <div key={player.id || player.playerId || idx} className="fade-up" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, opacity: isActive ? 1 : 0.4 }}>
-                        <div style={{ position: 'relative' }}>
-                          <div className="lb-av" style={{ background: c.bg, color: c.color, width: 44, height: 44, fontSize: 13 }}>
-                            {getInitials(playerName)}
-                          </div>
-                          {isActive && (
-                            <div style={{
-                              position: 'absolute', bottom: 0, right: 0,
-                              width: 12, height: 12, borderRadius: '50%',
-                              background: 'var(--green-l)', border: '2px solid var(--bg)',
-                              boxShadow: '0 0 8px rgba(34,197,94,.4)',
-                            }} />
-                          )}
+                    {activePlayers.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
+                        <div className="dots" style={{ marginBottom: 16 }}>
+                          <div className="dot" /><div className="dot" /><div className="dot" />
                         </div>
-                        <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 600, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                          {playerName}
-                        </span>
+                        <p>Waiting for players to join...</p>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 10 }}>
+                        {activePlayers.map((player, idx) => {
+                          const c = AVATAR_COLORS[idx % AVATAR_COLORS.length]
+                          const playerName = player.name || player.playerName || 'Player'
+                          return (
+                            <div key={player.id || player.playerId || idx} className="fade-up" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                              <div style={{ position: 'relative' }}>
+                                <div className="lb-av" style={{ background: c.bg, color: c.color, width: 44, height: 44, fontSize: 13 }}>
+                                  {getInitials(playerName)}
+                                </div>
+                                <div style={{
+                                  position: 'absolute', bottom: 0, right: 0,
+                                  width: 12, height: 12, borderRadius: '50%',
+                                  background: 'var(--green-l)', border: '2px solid var(--bg)',
+                                  boxShadow: '0 0 8px rgba(34,197,94,.4)',
+                                }} />
+                              </div>
+                              <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 600, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                {playerName}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
 
             {/* Right: QR */}
@@ -262,7 +272,7 @@ export default function HostLobby() {
                 className="btn btn-primary btn-lg"
                 style={{ width: '100%', marginBottom: 8 }}
                 onClick={handleStart}
-                disabled={players.length === 0}
+                disabled={activePlayers.length === 0}
               >
                 <span className="mat sm">play_arrow</span>Start Quiz
               </button>

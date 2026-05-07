@@ -169,19 +169,17 @@ function initQuizSocket(io) {
           score: playerEntry?.score || 0,
         })
 
-        // Update host with player list (including active status)
-        const hostSocketId = roomHosts[code]
-        if (hostSocketId) {
-          const activePlayers = session.players.filter(p => p.active !== false)
-          io.to(hostSocketId).emit('room:players', {
-            count: activePlayers.length,
-            players: session.players.map((p) => ({ 
-              name: p.name, 
-              id: p.playerId,
-              active: p.active !== false 
-            })),
-          })
-        }
+        // Update everyone in the room with the player list
+        // (broadcast to room instead of specific host socket — resilient to host reconnects)
+        const updatedActive = session.players.filter(p => p.active !== false)
+        io.to(code).emit('room:players', {
+          count: updatedActive.length,
+          players: session.players.map((p) => ({ 
+            name: p.name, 
+            id: p.playerId,
+            active: p.active !== false 
+          })),
+        })
 
         console.log(`Player "${trimmedName}" ${existingPlayer ? 'reconnected to' : 'joined'} room ${code}`)
       } catch (err) {
@@ -194,9 +192,12 @@ function initQuizSocket(io) {
     // PLAYER: Leave a room explicitly
     // Mark as inactive instead of removing — preserves score for reconnection
     // ─────────────────────────────────────────────
-    socket.on('player:leave', async ({ roomCode, playerId }) => {
+    socket.on('player:leave', async ({ roomCode, playerId }, ack) => {
       try {
-        if (!roomCode || !playerId) return
+        if (!roomCode || !playerId) {
+          if (typeof ack === 'function') ack({ success: false, error: 'Missing roomCode or playerId' })
+          return
+        }
         const code = roomCode.toUpperCase().trim()
         
         socket.leave(code)
@@ -210,22 +211,22 @@ function initQuizSocket(io) {
 
         if (session) {
           console.log(`Player left room ${code} (marked inactive)`)
-          // Update host with player list (including active status)
-          const hostSocketId = roomHosts[code]
-          if (hostSocketId) {
-            const activePlayers = session.players.filter(p => p.active !== false)
-            io.to(hostSocketId).emit('room:players', {
-              count: activePlayers.length,
-              players: session.players.map((p) => ({ 
-                name: p.name, 
-                id: p.playerId,
-                active: p.active !== false 
-              })),
-            })
-          }
+          // Update everyone in the room with the player list
+          const updatedActive = session.players.filter(p => p.active !== false)
+          io.to(code).emit('room:players', {
+            count: updatedActive.length,
+            players: session.players.map((p) => ({ 
+              name: p.name, 
+              id: p.playerId,
+              active: p.active !== false 
+            })),
+          })
         }
+
+        if (typeof ack === 'function') ack({ success: true })
       } catch (err) {
         console.error('player:leave error:', err)
+        if (typeof ack === 'function') ack({ success: false, error: err.message || 'player:leave failed' })
       }
     })
 
@@ -599,18 +600,15 @@ function initQuizSocket(io) {
           { new: true }
         ).then(session => {
           if (session) {
-            const hostSocketId = roomHosts[code]
-            if (hostSocketId) {
-              const activePlayers = session.players.filter(p => p.active !== false)
-              io.to(hostSocketId).emit('room:players', {
-                count: activePlayers.length,
-                players: session.players.map((p) => ({ 
-                  name: p.name, 
-                  id: p.playerId,
-                  active: p.active !== false 
-                })),
-              })
-            }
+            // Broadcast updated player list to the room
+            io.to(code).emit('room:players', {
+              count: session.players.filter(p => p.active !== false).length,
+              players: session.players.map((p) => ({ 
+                name: p.name, 
+                id: p.playerId,
+                active: p.active !== false 
+              })),
+            })
           }
         }).catch(err => console.error('Disconnect cleanup error:', err))
       }
