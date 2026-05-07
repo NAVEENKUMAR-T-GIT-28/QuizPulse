@@ -27,8 +27,15 @@ function validateQuizPayload({ title, questions }) {
   questions?.forEach((q, i) => {
     const label = `Question ${i + 1}`
     if (!q.text || typeof q.text !== 'string') errors.push(`${label}: text is required`)
+    if (q.text && q.text.trim().length > 500) errors.push(`${label}: question text cannot exceed 500 characters`)
     if (!Array.isArray(q.options) || q.options.length < 2 || q.options.length > 4) {
       errors.push(`${label}: must have 2–4 options`)
+    }
+    if (Array.isArray(q.options) && q.options.some(o => typeof o !== 'string' || o.trim().length === 0)) {
+      errors.push(`${label}: all options must be non-empty`)
+    }
+    if (Array.isArray(q.options) && q.options.some(o => typeof o === 'string' && o.length > 200)) {
+      errors.push(`${label}: each option cannot exceed 200 characters`)
     }
     if (!Number.isInteger(q.correctIndex) || q.correctIndex < 0 || q.correctIndex >= (q.options?.length ?? 0)) {
       errors.push(`${label}: correctIndex is out of range`)
@@ -103,8 +110,14 @@ router.put('/:id', asyncHandler(async (req, res) => {
         const label = `Question ${i + 1}`
         if (!q.text || typeof q.text !== 'string')
           errors.push(`${label}: text is required`)
+        if (q.text && q.text.trim().length > 500)
+          errors.push(`${label}: question text cannot exceed 500 characters`)
         if (!Array.isArray(q.options) || q.options.length < 2 || q.options.length > 4)
           errors.push(`${label}: must have 2–4 options`)
+        if (Array.isArray(q.options) && q.options.some(o => typeof o !== 'string' || o.trim().length === 0))
+          errors.push(`${label}: all options must be non-empty`)
+        if (Array.isArray(q.options) && q.options.some(o => typeof o === 'string' && o.length > 200))
+          errors.push(`${label}: each option cannot exceed 200 characters`)
         if (!Number.isInteger(q.correctIndex) || q.correctIndex < 0 || q.correctIndex >= (q.options?.length ?? 0))
           errors.push(`${label}: correctIndex is out of range`)
         if (q.timeLimit !== undefined && (q.timeLimit < 5 || q.timeLimit > 120))

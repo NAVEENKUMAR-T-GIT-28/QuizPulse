@@ -7,13 +7,14 @@ if (missing.length > 0) {
   process.exit(1)
 }
 
-const express    = require('express')
-const http       = require('http')
-const { Server } = require('socket.io')
-const mongoose   = require('mongoose')
-const cors       = require('cors')
-const rateLimit  = require('express-rate-limit')
-const cookieParser = require('cookie-parser')  
+const express      = require('express')
+const http         = require('http')
+const { Server }   = require('socket.io')
+const mongoose     = require('mongoose')
+const cors         = require('cors')
+const rateLimit    = require('express-rate-limit')
+const cookieParser = require('cookie-parser')
+const helmet       = require('helmet')
 
 const authRoutes    = require('./routes/auth')
 const quizRoutes    = require('./routes/quiz')
@@ -64,15 +65,26 @@ const io = new Server(server, {
 initQuizSocket(io)
 
 // ─────────────────────────────────────────────
+// Security headers (helmet)
+// Must be first — sets X-Content-Type-Options, X-Frame-Options,
+// Strict-Transport-Security, and 10 other protective headers.
+// CSP is disabled here because Socket.io and the React SPA
+// require a custom policy that varies by deployment host.
+// ─────────────────────────────────────────────
+app.use(helmet({ contentSecurityPolicy: false }))
+
+// ─────────────────────────────────────────────
 // Express middleware
 // ─────────────────────────────────────────────
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,
 }))
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ extended: true }))
-app.use(cookieParser()) 
+// 1mb is ample for any valid quiz payload (25 questions × 4 options × 500 chars ≈ 50KB).
+// The previous 10mb limit was a memory-exhaustion risk.
+app.use(express.json({ limit: '1mb' }))
+app.use(express.urlencoded({ extended: true, limit: '100kb' }))
+app.use(cookieParser())
 
 // ─────────────────────────────────────────────
 // Routes (with rate limiters)
@@ -112,7 +124,12 @@ module.exports = app
 
 if (require.main === module) {
   mongoose
-    .connect(process.env.MONGODB_URI)
+    .connect(process.env.MONGODB_URI, {
+      // Fail fast if Atlas is unreachable — avoids a 30-second hang on startup.
+      serverSelectionTimeoutMS: 5000,
+      // Drop a stale connection after 45 seconds of inactivity.
+      socketTimeoutMS: 45000,
+    })
     .then(() => {
       console.log('MongoDB connected')
       server.listen(PORT, () => {
