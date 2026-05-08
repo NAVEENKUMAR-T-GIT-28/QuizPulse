@@ -37,6 +37,7 @@ export default function QuizBuilder() {
   const [fetchLoading, setFetchLoading] = useState(!!id)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isMobile, setIsMobile]       = useState(window.innerWidth <= 768)
+  const [viewMode, setViewMode] = useState(isMobile ? 'accordion' : 'desktop') // 'accordion' | 'desktop'
 
   // Listen for resize
   useEffect(() => {
@@ -44,6 +45,11 @@ export default function QuizBuilder() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // Lock mobile to accordion view and hide desktop toggle
+  useEffect(() => {
+    if (isMobile) setViewMode('accordion')
+  }, [isMobile])
 
   // Load existing quiz in edit mode
   useEffect(() => {
@@ -309,14 +315,35 @@ export default function QuizBuilder() {
         onLogoClick={() => navigate('/dashboard')}
         title={id ? 'Edit Quiz' : 'New Quiz'}
       >
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={handleSubmit}
-          disabled={loading}
-        >
-          <span className="mat sm">save</span>
-          {loading ? 'Saving...' : 'Save Quiz'}
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {!isMobile && (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                type="button"
+                className={`btn ${viewMode === 'desktop' ? 'btn-primary' : 'btn-ghost'} btn-sm`}
+                onClick={() => setViewMode('desktop')}
+              >
+                Desktop
+              </button>
+              <button
+                type="button"
+                className={`btn ${viewMode === 'accordion' ? 'btn-primary' : 'btn-ghost'} btn-sm`}
+                onClick={() => setViewMode('accordion')}
+              >
+                Accordion
+              </button>
+            </div>
+          )}
+
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            <span className="mat sm">save</span>
+            {loading ? 'Saving...' : 'Save Quiz'}
+          </button>
+        </div>
       </Topbar>
 
       <div className="host-layout">
@@ -327,10 +354,10 @@ export default function QuizBuilder() {
           <div style={{ maxWidth: 800, margin: '0 auto', paddingBottom: 60 }}>
             {error && <div className="error-msg">{error}</div>}
 
-            {/* Layout Branch: Mobile Accordion vs Desktop Single Question */}
-            {isMobile ? (
+            {/* Layout Branch: Accordion vs Desktop Single Question */}
+            {viewMode === 'accordion' ? (
               <div className="mobile-accordion-list">
-                {/* Quiz Settings Accordion Item (Mobile) */}
+                {/* Quiz Settings Accordion Item (Mobile/Desktop unified) */}
                 <div className="accordion" style={{ marginBottom: 12 }}>
                   <div 
                     className={`accordion-header ${activeQ === -1 ? 'active' : ''}`}
@@ -402,9 +429,8 @@ export default function QuizBuilder() {
                 </button>
               </div>
             ) : (
-              /* Desktop Single Question Editor */
               <>
-                {/* Quiz Settings Accordion Item (Desktop Center) */}
+                {/* Desktop Single Question Editor */}
                 <div className="accordion" style={{ marginBottom: 28 }}>
                   <div 
                     className={`accordion-header ${activeQ === -1 ? 'active' : ''}`}
@@ -438,8 +464,7 @@ export default function QuizBuilder() {
           </div>
         </div>
 
-        {/* Right Side Navigator (Desktop Only) */}
-        {!isMobile && (
+        {viewMode === 'desktop' && (
           <div className="sidebar" style={{ width: 300, borderLeft: '1px solid var(--border)', borderRight: 'none', background: 'var(--bg2)', padding: '20px 16px' }}>
             <div style={{ padding: '4px 6px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
