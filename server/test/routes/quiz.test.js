@@ -13,7 +13,9 @@ let cookie   // Alice's session cookie
 
 beforeAll(() => db.connect())
 afterAll(()  => db.disconnect())
-afterEach(() => db.clearCollections())
+afterEach(async () => {
+  await db.clearCollections()
+})
 
 // ─── Helper: seed user directly + return login cookie ─────────────────────
 async function loginAs(name, email, password) {

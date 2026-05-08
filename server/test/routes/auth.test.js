@@ -24,9 +24,9 @@ const { sendOtpEmail } = require('../../services/emailService')
 
 beforeAll(() => db.connect())
 afterAll(()  => db.disconnect())
-afterEach(() => {
-  db.clearCollections()
-  jest.clearAllMocks()   // reset mock call counts between tests
+afterEach(async () => {
+  await db.clearCollections()
+  jest.clearAllMocks()
 })
 
 // ─── Helper: seed verified user + return login cookie ─────────────────────
