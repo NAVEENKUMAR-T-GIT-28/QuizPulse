@@ -108,6 +108,7 @@ export default function AuthPage() {
   const [error, setError]     = useState(null)
   const [info, setInfo]       = useState(null)
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   // Resend cooldown — starts at 60 s after OTP is sent
   const [cooldownKey, setCooldownKey] = useState(0)
@@ -313,15 +314,25 @@ export default function AuthPage() {
                   </div>
                   <div style={{ marginBottom: 20 }}>
                     <label className="section-label">Password</label>
-                    <input
-                      id="input-password"
-                      className="input"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      required
-                    />
+                    <div className="input-with-icon">
+                      <input
+                        id="input-password"
+                        className="input"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="input-icon-btn"
+                        onClick={() => setShowPassword(!showPassword)}
+                        tabIndex="-1"
+                      >
+                        <span className="mat">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                      </button>
+                    </div>
                   </div>
                   <button
                     id="btn-auth-submit"
@@ -363,16 +374,26 @@ export default function AuthPage() {
                   </div>
                   <div style={{ marginBottom: 20 }}>
                     <label className="section-label">Password</label>
-                    <input
-                      id="input-password"
-                      className="input"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      required
-                      minLength={6}
-                    />
+                    <div className="input-with-icon">
+                      <input
+                        id="input-password"
+                        className="input"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        className="input-icon-btn"
+                        onClick={() => setShowPassword(!showPassword)}
+                        tabIndex="-1"
+                      >
+                        <span className="mat">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                      </button>
+                    </div>
                   </div>
                   <button
                     id="btn-auth-submit"
