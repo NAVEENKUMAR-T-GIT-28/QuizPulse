@@ -161,7 +161,7 @@ describe('player:join', () => {
     client.emit('player:join', {
       roomCode:   session.roomCode,
       playerName: 'Attacker',
-      playerId:   'x'.repeat(65),
+      playerId:   'x'.repeat(101),  // server rejects anything > 100 chars
     })
 
     const err = await waitFor(client, 'error')

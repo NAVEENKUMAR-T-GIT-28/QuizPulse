@@ -17,7 +17,8 @@
  *  N+1     Leaderboard   — podium + full ranked list
  */
 
-const puppeteer = require('puppeteer')
+let puppeteer
+try { puppeteer = require('puppeteer') } catch(_) { puppeteer = null }
 
 const initials = (name = '') => name.trim().slice(0, 2).toUpperCase()
 const fmt = (n) => Number(n).toLocaleString('en-US')
