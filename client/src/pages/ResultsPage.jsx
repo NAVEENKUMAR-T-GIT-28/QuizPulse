@@ -56,7 +56,7 @@ export default function ResultsPage() {
   const { session, leaderboard, questionStats } = results
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Topbar */}
       <div className="topbar">
         <div className="topbar-logo">QuizPulse</div>
@@ -80,8 +80,9 @@ export default function ResultsPage() {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
-        <div style={{ maxWidth: 800, margin: '0 auto' }}>
+      <div className="host-layout">
+        <div className="main-content scroll-area">
+          <div style={{ maxWidth: 800, margin: '0 auto' }}>
           {/* Header */}
           <div className="fade-up" style={{ marginBottom: 32 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -249,6 +250,7 @@ export default function ResultsPage() {
             <button className="btn btn-ghost btn-lg" onClick={() => navigate('/dashboard')}>
               <span className="mat">arrow_back</span>Back to Dashboard
             </button>
+          </div>
           </div>
         </div>
       </div>

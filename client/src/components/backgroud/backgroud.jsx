@@ -1,6 +1,10 @@
+import { useLocation } from 'react-router-dom';
 import LiquidEther from './LiquidEther';
 
 export default function Background() {
+  const location = useLocation();
+  const isLivePage = location.pathname.startsWith('/play/') || location.pathname.startsWith('/host/');
+
   return (
     <div style={{ 
       position: 'fixed', 
@@ -10,7 +14,9 @@ export default function Background() {
       height: '100%', 
       zIndex: -1, 
       pointerEvents: 'none',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      opacity: isLivePage ? 0.2 : 1,
+      transition: 'opacity 0.5s ease-in-out'
     }}>
       <LiquidEther
         colors={[ '#5227FF', '#FF9FFC', '#B497CF' ]}
