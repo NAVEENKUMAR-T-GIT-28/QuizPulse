@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSessionHistory, getSessionResults, exportSessionPdf, deleteSession } from '../api/quizApi'
-import { clearAuth, getUser } from '../hooks/useAuth'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
 
 export default function HistoryPage() {
   const navigate = useNavigate()
-  const user = getUser()
 
   const [sessions, setSessions]       = useState([])
   const [loading, setLoading]         = useState(true)
@@ -75,11 +73,6 @@ export default function HistoryPage() {
     } finally {
       setExportingId(null)
     }
-  }
-
-  function handleLogout() {
-    clearAuth()
-    navigate('/')
   }
 
   function fmtDate(iso) {

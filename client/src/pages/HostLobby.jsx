@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import socket from '../socket/socket'
 import useQuizStore from '../store/useQuizStore'
 import QRCodeDisplay from '../components/QRCodeDisplay'
-import { verifyHostSession, deleteSession } from '../api/quizApi'
+import { verifyHostSession } from '../api/quizApi'
 import { setActiveSession, clearActiveSession } from '../context/ActiveSessionContext'
 import Topbar from '../components/Topbar'
 
@@ -26,7 +26,6 @@ export default function HostLobby() {
   const { players, setPlayers } = useQuizStore()
   const [authChecked, setAuthChecked] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sessionId, setSessionId] = useState(null)
   const [showCancelModal, setShowCancelModal] = useState(false)
 
   // ── Step 1: verify ownership before doing anything else ──────────────────
@@ -34,7 +33,6 @@ export default function HostLobby() {
     verifyHostSession(roomCode)
       .then((data) => {
         setAuthChecked(true)
-        setSessionId(data.sessionId)
         setActiveSession({ role: 'host', roomCode, sessionId: data.sessionId })
       })
       .catch((err) => {
@@ -102,7 +100,7 @@ export default function HostLobby() {
   }, [roomCode, setPlayers, navigate, authChecked])
 
   const activePlayers = players.filter(p => p.active !== false)
-   
+
   function handleStart() {
     if (activePlayers.length === 0) {
       return alert('At least one player must be in the room before starting the quiz.')
@@ -120,11 +118,11 @@ export default function HostLobby() {
     try {
       // 1. Clean up local state immediately
       clearActiveSession()
-      
+
       // 2. Emit cancel — the server handler deletes the session from DB 
       //    and notifies all players in one atomic flow.
       socket.emit('host:cancel', { roomCode })
-      
+
       // 3. Disconnect and leave
       socket.disconnect()
       navigate('/dashboard')

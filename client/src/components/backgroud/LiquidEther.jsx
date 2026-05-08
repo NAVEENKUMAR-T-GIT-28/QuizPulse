@@ -999,6 +999,7 @@ export default function LiquidEther({
             Common.renderer.forceContextLoss();
           }
         } catch (e) {
+          console.warn('Ignored cleanup error:', e);
           void 0;
         }
       }
@@ -1079,6 +1080,7 @@ export default function LiquidEther({
         try {
           resizeObserverRef.current.disconnect();
         } catch (e) {
+          console.warn('Ignored cleanup error:', e)
           void 0;
         }
       }
@@ -1086,6 +1088,7 @@ export default function LiquidEther({
         try {
           intersectionObserverRef.current.disconnect();
         } catch (e) {
+          console.warn('Ignored cleanup error:', e)
           void 0;
         }
       }

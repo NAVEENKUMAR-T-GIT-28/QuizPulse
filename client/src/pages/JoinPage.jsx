@@ -12,7 +12,6 @@ export default function JoinPage() {
   const [playerName, setPlayerName] = useState('')
   const [error, setError]           = useState(null)
   const [loading, setLoading]       = useState(false)
-  const [roomInfo, setRoomInfo]     = useState(null)
 
   async function handleJoin(e) {
     e.preventDefault()

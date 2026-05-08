@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
-import { getQuizzes, deleteQuiz, createSession, logout } from '../api/quizApi'
-import { clearAuth, getUser } from '../hooks/useAuth'
+import { getQuizzes, deleteQuiz, createSession } from '../api/quizApi'
 
 export default function HostDashboard() {
   const navigate = useNavigate()
@@ -15,7 +14,6 @@ export default function HostDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   // Error message passed via navigation state (e.g. from unauthorized host redirect)
   const [redirectError, setRedirectError] = useState(location.state?.error || null)
-  const user = getUser()
 
   useEffect(() => {
     getQuizzes()

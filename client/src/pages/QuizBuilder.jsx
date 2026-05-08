@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getQuiz, createQuiz, updateQuiz } from '../api/quizApi'
-import { clearAuth, getUser } from '../hooks/useAuth'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
 
@@ -24,7 +23,6 @@ const BLANK_QUESTION = () => ({ text: '', options: ['', '', '', ''], correctInde
 export default function QuizBuilder() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const user = getUser()
 
   const [title, setTitle]             = useState('')
   const [description, setDescription] = useState('')
@@ -134,16 +132,9 @@ export default function QuizBuilder() {
     }
   }
 
-  function handleLogout() {
-    clearAuth()
-    navigate('/')
-  }
-
   if (fetchLoading) {
     return <div className="loading-center"><div className="spinner" /></div>
   }
-
-  const q = questions[activeQ] || questions[0]
 
   function renderQuizSettings() {
     return (

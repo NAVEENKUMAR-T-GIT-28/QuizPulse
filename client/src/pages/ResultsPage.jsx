@@ -27,6 +27,7 @@ export default function ResultsPage() {
       await exportSessionPdf(sessionId, filename)
     } catch (err) {
       alert('Failed to export PDF')
+      setError(err.response?.data?.error || 'Failed to export PDF')
     } finally {
       setExporting(false)
     }

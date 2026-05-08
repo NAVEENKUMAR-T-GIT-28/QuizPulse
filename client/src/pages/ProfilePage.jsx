@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getMe, updateProfile, changePassword, deleteAccount, logout } from '../api/quizApi'
+import { getMe, updateProfile, changePassword, deleteAccount } from '../api/quizApi'
 import { clearAuth, getUser, setUser } from '../hooks/useAuth'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
@@ -107,12 +107,6 @@ export default function ProfilePage() {
       setDeleteMsg({ type: 'error', text: err.response?.data?.error || 'Failed to delete account' })
       setDeleteLoading(false)
     }
-  }
-
-  async function handleLogout() {
-    try { await logout() } catch {}
-    clearAuth()
-    navigate('/')
   }
 
   const memberSince = currentUser?.createdAt

@@ -24,7 +24,7 @@ export default function PlayerLobby() {
     const finalize = () => {
       if (finished) return
       finished = true
-      try { socket.disconnect() } catch (e) {}
+      try { socket.disconnect() } catch (e) { console.warn('Ignored socket cleanup:', e) }
       localStorage.removeItem('qp_roomCode')
       localStorage.removeItem('qp_playerId')
       resetSession()
@@ -35,7 +35,7 @@ export default function PlayerLobby() {
       if (socket && socket.connected) {
         // Request server to mark player inactive, then disconnect when ack'd.
         // Fallback timeout in case the ack doesn't arrive.
-        socket.emit('player:leave', { roomCode, playerId }, (res) => {
+        socket.emit('player:leave', { roomCode, playerId }, () => {
           finalize()
         })
         setTimeout(finalize, 2000)
