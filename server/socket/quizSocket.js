@@ -3,6 +3,7 @@ const sanitizeHtml = require('sanitize-html')
 const Session = require('../models/Session')
 const Quiz = require('../models/Quiz')
 const { processReveal, buildLeaderboard, getVoteStats } = require('../services/quizService')
+const logger = require('../utils/logger')
 
 /**
  * In-memory stores for the duration of a live session.
@@ -65,7 +66,7 @@ function resolveTimeLimit(quiz, questionIndex) {
 
 function initQuizSocket(io) {
   io.on('connection', (socket) => {
-    console.log(`Socket connected: ${socket.id}`)
+    logger.info({ socketId: socket.id }, 'Socket connected')
 
     // ─────────────────────────────────────────────
     // PLAYER: Join a room
@@ -181,9 +182,9 @@ function initQuizSocket(io) {
           })),
         })
 
-        console.log(`Player "${trimmedName}" ${existingPlayer ? 'reconnected to' : 'joined'} room ${code}`)
+        logger.info({ roomCode: code, playerName: trimmedName, action: existingPlayer ? 'reconnected' : 'joined' }, 'Player joined room')
       } catch (err) {
-        console.error('player:join error:', err)
+        logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'player:join error')
         socket.emit('error', { message: 'Failed to join room' })
       }
     })
@@ -210,7 +211,7 @@ function initQuizSocket(io) {
         )
 
         if (session) {
-          console.log(`Player left room ${code} (marked inactive)`)
+          logger.info({ roomCode: code }, 'Player left room (marked inactive)')
           // Update everyone in the room with the player list
           const updatedActive = session.players.filter(p => p.active !== false)
           io.to(code).emit('room:players', {
@@ -225,7 +226,7 @@ function initQuizSocket(io) {
 
         if (typeof ack === 'function') ack({ success: true })
       } catch (err) {
-        console.error('player:leave error:', err)
+        logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'player:leave error')
         if (typeof ack === 'function') ack({ success: false, error: err.message || 'player:leave failed' })
       }
     })
@@ -289,9 +290,9 @@ function initQuizSocket(io) {
           currentQuestion,
         })
 
-        console.log(`Host joined room ${code}`)
+        logger.info({ roomCode: code }, 'Host joined room')
       } catch (err) {
-        console.error('host:join error:', err)
+        logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'host:join error')
         socket.emit('error', { message: 'Failed to join as host' })
       }
     })
@@ -342,9 +343,9 @@ function initQuizSocket(io) {
         // Start server-side countdown timer
         startQuestionTimer(io, code, session, quiz, timeLimit)
 
-        console.log(`Quiz started in room ${code}`)
+        logger.info({ roomCode: code }, 'Quiz started')
       } catch (err) {
-        console.error('quiz:start error:', err)
+        logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'quiz:start error')
       }
     })
 
@@ -421,7 +422,7 @@ function initQuizSocket(io) {
         // Acknowledge to player that answer was received
         socket.emit('answer:received', { questionIndex, optionIndex })
       } catch (err) {
-        console.error('player:answer error:', err)
+        logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'player:answer error')
       }
     })
 
@@ -458,9 +459,9 @@ function initQuizSocket(io) {
           questionIndex: session.currentIndex,
         })
 
-        console.log(`Revealed question ${session.currentIndex} in room ${code}`)
+        logger.info({ roomCode: code, questionIndex: session.currentIndex }, 'Revealed question')
       } catch (err) {
-        console.error('quiz:reveal error:', err)
+        logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'quiz:reveal error')
       }
     })
 
@@ -508,9 +509,9 @@ function initQuizSocket(io) {
         // Restart timer for new question
         startQuestionTimer(io, code, session, quiz, timeLimit)
 
-        console.log(`Advanced to question ${nextIndex} in room ${code}`)
+        logger.info({ roomCode: code, questionIndex: nextIndex }, 'Advanced to question')
       } catch (err) {
-        console.error('quiz:next error:', err)
+        logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'quiz:next error')
       }
     })
 
@@ -541,9 +542,9 @@ function initQuizSocket(io) {
 
         // Cleanup in-memory stores
         cleanupRoom(io, code)
-        console.log(`Session ended in room ${code}`)
+        logger.info({ roomCode: code }, 'Session ended')
       } catch (err) {
-        console.error('quiz:end error:', err)
+        logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'quiz:end error')
       }
     })
 
@@ -564,9 +565,9 @@ function initQuizSocket(io) {
         await Session.deleteOne({ roomCode: code })
 
         cleanupRoom(io, code)
-        console.log(`Session canceled and deleted in room ${code}`)
+        logger.info({ roomCode: code }, 'Session canceled and deleted')
       } catch (err) {
-        console.error('host:cancel error:', err)
+        logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'host:cancel error')
       }
     })
 
@@ -610,10 +611,10 @@ function initQuizSocket(io) {
               })),
             })
           }
-        }).catch(err => console.error('Disconnect cleanup error:', err))
+        }).catch(err => logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'Disconnect cleanup error'))
       }
 
-      console.log(`Socket disconnected: ${socket.id}`)
+      logger.info({ socketId: socket.id }, 'Socket disconnected')
     })
   })
 }
@@ -667,7 +668,7 @@ function startQuestionTimer(io, code, session, quiz, timeLimit) {
         autoRevealed: true,
       })
     } catch (err) {
-      console.error('Auto-reveal error:', err)
+      logger.error({ err, roomCode: typeof code !== 'undefined' ? code : undefined }, 'Auto-reveal error')
     }
   }, timeLimit * 1000)
 }
@@ -714,7 +715,7 @@ function cleanupRoom(io, code) {
     setTimeout(() => delete roomEnded[code], 5000)
 
   } catch (err) {
-    console.error(`cleanupRoom error [room=${code}]:`, err)
+    logger.error({ err, roomCode: code }, 'cleanupRoom error')
   }
 }
 

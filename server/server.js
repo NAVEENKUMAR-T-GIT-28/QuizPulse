@@ -1,9 +1,11 @@
 require('dotenv').config()
 
+const logger = require('./utils/logger')
+
 const REQUIRED_ENV = ['JWT_SECRET', 'MONGODB_URI', 'PORT']
 const missing = REQUIRED_ENV.filter(key => !process.env[key])
 if (missing.length > 0) {
-  console.error(`Missing required environment variables: ${missing.join(', ')}`)
+  logger.fatal({ missing }, 'Missing required environment variables')
   process.exit(1)
 }
 
@@ -22,12 +24,10 @@ const quizRoutes    = require('./routes/quiz')
 const sessionRoutes = require('./routes/session')
 const exportRoutes  = require('./routes/export')
 const { initQuizSocket } = require('./socket/quizSocket')
-const pino = require('pino')
 const Sentry = require('@sentry/node')
 
-const logger = pino({ level: process.env.LOG_LEVEL || 'info' })
-
 Sentry.init({ dsn: process.env.SENTRY_DSN })
+if (!process.env.SENTRY_DSN) logger.warn('SENTRY_DSN not set — error tracking disabled')
 
 const app    = express()
 const server = http.createServer(app)
@@ -143,14 +143,13 @@ if (require.main === module) {
       socketTimeoutMS: 45000,
     })
     .then(() => {
-      console.log('MongoDB connected')
+      logger.info('MongoDB connected')
       server.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`)
-        console.log(`URL: http://localhost:${PORT}`)
+        logger.info({ port: PORT }, 'Server running')
       })
     })
     .catch((err) => {
-      console.error('MongoDB connection error:', err)
+      logger.fatal({ err }, 'MongoDB connection failed')
       process.exit(1)
     })
 }

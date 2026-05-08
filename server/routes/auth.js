@@ -11,6 +11,7 @@ const Session        = require('../models/Session')
 const authMiddleware = require('../middleware/authMiddleware')
 const asyncHandler   = require('../utils/asyncHandler')
 const { sendOtpEmail } = require('../services/emailService')
+const logger         = require('../utils/logger')
 
 const router = express.Router()
 
@@ -68,7 +69,7 @@ router.post('/register/initiate', asyncHandler(async (req, res) => {
   try {
     await sendOtpEmail(email, name.split(' ')[0], rawOtp)
   } catch (mailErr) {
-    console.error('[OTP] Failed to send email:', mailErr.message)
+    logger.error({ err: mailErr }, '[OTP] Failed to send email')
     await Otp.deleteMany({ email: email.toLowerCase() })
     return res.status(502).json({ error: 'Could not send verification email. Please try again.' })
   }
@@ -160,7 +161,7 @@ router.post('/register/resend', asyncHandler(async (req, res) => {
   try {
     await sendOtpEmail(email, pending.name.split(' ')[0], rawOtp)
   } catch (mailErr) {
-    console.error('[OTP] Resend failed:', mailErr.message)
+    logger.error({ err: mailErr }, '[OTP] Resend failed')
     return res.status(502).json({ error: 'Could not resend email. Please try again.' })
   }
 
@@ -192,6 +193,28 @@ router.post('/login', asyncHandler(async (req, res) => {
   res.json({
     user: { id: user._id, name: user.name, email: user.email, createdAt: user.createdAt },
   })
+}))
+
+// ─── Refresh Token ────────────────────────────────────────────────────────
+//
+// POST /api/auth/refresh
+router.post('/refresh', asyncHandler(async (req, res) => {
+  const token = req.cookies?.token
+  if (!token) return res.status(401).json({ error: 'No token provided' })
+
+  try {
+    // Verify token, ignoring expiration so we can refresh an expired token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true })
+    
+    const user = await User.findById(decoded.id)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const newToken = signToken(user)
+    res.cookie('token', newToken, COOKIE_OPTIONS)
+    res.json({ message: 'Token refreshed' })
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' })
+  }
 }))
 
 // ─── Logout ───────────────────────────────────────────────────────────────

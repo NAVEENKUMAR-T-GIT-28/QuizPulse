@@ -5,6 +5,7 @@ const Quiz      = require('../models/Quiz')
 const authMiddleware         = require('../middleware/authMiddleware')
 const { generateSessionPDF } = require('../services/pdfService')
 const { generateFallbackPDF } = require('../services/pdfKitService')
+const logger = require('../utils/logger')
 
 const router = express.Router()
 
@@ -85,13 +86,13 @@ router.get('/:sessionId', authMiddleware, puppeteerLimiter, async (req, res) => 
     const USE_PUPPETEER = String(process.env.ENABLE_PUPPETEER).trim().toLowerCase() === 'true'
 
     if (USE_PUPPETEER) {
-      console.log(`[DEBUG] Attempting Puppeteer export for session ${req.params.sessionId}`)
+      logger.info({ sessionId: req.params.sessionId }, 'Attempting Puppeteer export')
       try {
         const pdf = await generateSessionPDF(session, quiz)
-        console.log(`[DEBUG] Puppeteer export successful`)
+        logger.info({ sessionId: req.params.sessionId }, 'Puppeteer export successful')
         return sendPDF(res, pdf, buildFilename(session))
       } catch (puppeteerErr) {
-        console.error(`[DEBUG] PDF export [Puppeteer] failed:`, puppeteerErr)
+        logger.error({ err: puppeteerErr, sessionId: req.params.sessionId }, 'PDF export [Puppeteer] failed')
         
         // Check for common "missing browser" errors
         const isMissingBrowser = (
@@ -101,7 +102,7 @@ router.get('/:sessionId', authMiddleware, puppeteerLimiter, async (req, res) => 
         )
 
         if (isMissingBrowser) {
-           console.warn(`[WARNING] Puppeteer is enabled but Chromium binary is missing. Falling back to PDFKit. Run "npm install" in server directory to download Chromium.`)
+           logger.warn('Puppeteer is enabled but Chromium binary is missing. Falling back to PDFKit. Run "npm install" in server directory to download Chromium.')
         }
 
         const isOOM = (
@@ -120,10 +121,10 @@ router.get('/:sessionId', authMiddleware, puppeteerLimiter, async (req, res) => 
             fallbackAvailable: true,
           })
         }
-        console.log(`[DEBUG] Falling back to PDFKit due to Puppeteer error: ${puppeteerErr.message}`)
+        logger.info({ errMessage: puppeteerErr.message, sessionId: req.params.sessionId }, 'Falling back to PDFKit due to Puppeteer error')
       }
     } else {
-      console.log(`[DEBUG] Puppeteer disabled via ENABLE_PUPPETEER env var. Using PDFKit.`)
+      logger.info({ sessionId: req.params.sessionId }, 'Puppeteer disabled via ENABLE_PUPPETEER env var. Using PDFKit.')
     }
 
     // Fallback path: If Puppeteer is disabled OR failed (and wasn't OOM handled above)
@@ -134,7 +135,7 @@ router.get('/:sessionId', authMiddleware, puppeteerLimiter, async (req, res) => 
     return sendPDF(res, pdf, buildFilename(session, '-simple'))
 
   } catch (err) {
-    console.error(`PDF export error [session=${req.params.sessionId}]:`, err)
+    logger.error({ err, sessionId: req.params.sessionId }, 'PDF export error')
     res.status(500).json({ error: 'Failed to generate PDF' })
   }
 })
@@ -151,7 +152,7 @@ router.get('/:sessionId/simple', authMiddleware, fallbackLimiter, async (req, re
     const pdf = await generateFallbackPDF(session, quiz)
     sendPDF(res, pdf, buildFilename(session, '-simple'))
   } catch (err) {
-    console.error(`PDF export [PDFKit] error [session=${req.params.sessionId}]:`, err)
+    logger.error({ err, sessionId: req.params.sessionId }, 'PDF export [PDFKit] error')
     res.status(500).json({ error: 'Failed to generate simple PDF' })
   }
 })
