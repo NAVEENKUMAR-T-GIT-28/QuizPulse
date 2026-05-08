@@ -22,7 +22,9 @@
     "nanoid": "^3.3.7",
     "nodemailer": "^8.0.7",
     "pdfkit": "^0.18.0",
+    "pino": "^9.0.0",
     "sanitize-html": "^2.17.3",
+    "@sentry/node": "^8.0.0",
     "socket.io": "^4.6.2"
   },
   "optionalDependencies": {

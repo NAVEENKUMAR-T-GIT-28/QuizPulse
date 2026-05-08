@@ -22,6 +22,12 @@ const quizRoutes    = require('./routes/quiz')
 const sessionRoutes = require('./routes/session')
 const exportRoutes  = require('./routes/export')
 const { initQuizSocket } = require('./socket/quizSocket')
+const pino = require('pino')
+const Sentry = require('@sentry/node')
+
+const logger = pino({ level: process.env.LOG_LEVEL || 'info' })
+
+Sentry.init({ dsn: process.env.SENTRY_DSN })
 
 const app    = express()
 const server = http.createServer(app)
@@ -111,7 +117,8 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err)
+  logger.error({ err, path: req.path, method: req.method }, 'Unhandled error')
+  Sentry.captureException(err)
   res.status(500).json({ error: 'Internal server error' })
 })
 
