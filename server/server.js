@@ -15,6 +15,7 @@ const cors         = require('cors')
 const rateLimit    = require('express-rate-limit')
 const cookieParser = require('cookie-parser')
 const helmet       = require('helmet')
+const path         = require('path')
 
 const authRoutes    = require('./routes/auth')
 const quizRoutes    = require('./routes/quiz')
@@ -99,6 +100,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'))
+})
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: `Route ${req.method} ${req.path} not found` })
@@ -134,6 +139,7 @@ if (require.main === module) {
       console.log('MongoDB connected')
       server.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`)
+        console.log(`URL: http://localhost:${PORT}`)
       })
     })
     .catch((err) => {
