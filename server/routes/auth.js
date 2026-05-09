@@ -17,10 +17,31 @@ const rateLimit      = require('express-rate-limit')
 const router = express.Router()
 
 // ─── Cookie config ─────────────────────────────────────────────────────────
+//
+// sameSite behaviour by deployment context:
+//
+//  LOCAL (NODE_ENV !== 'production'):
+//    sameSite: 'lax'   — frontend and backend on localhost, same-site by spec.
+//    secure:   false   — http://localhost doesn't need HTTPS.
+//
+//  PRODUCTION (NODE_ENV === 'production'):
+//    sameSite: 'none'  — frontend (Vercel) and backend (Render) are DIFFERENT
+//                        origins. 'strict' or 'lax' silently drops the cookie
+//                        on every cross-site request → 401 on all API calls.
+//                        'none' is the only value that allows cross-origin cookies.
+//    secure:   true    — browsers REQUIRE secure=true whenever sameSite=none.
+//                        Both Vercel and Render serve over HTTPS, so this is fine.
+//
+// ⚠️  Never use sameSite: 'strict' in production when the frontend and backend
+//     are on different domains (e.g. .vercel.app → .onrender.com). The browser
+//     will block the cookie entirely and every authenticated request returns 401.
+//
+const isProd = process.env.NODE_ENV === 'production'
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  sameSite: 'strict',
-  secure:   process.env.NODE_ENV === 'production',
+  sameSite: isProd ? 'none' : 'lax',
+  secure:   isProd,
   maxAge:   7 * 24 * 60 * 60 * 1000,
   path:     '/',
 }
@@ -207,7 +228,7 @@ router.post('/refresh', refreshLimiter, asyncHandler(async (req, res) => {
   try {
     // Verify token, ignoring expiration so we can refresh an expired token
     const decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true })
-    
+
     const user = await User.findById(decoded.id)
     if (!user || user.disabled) return res.status(401).json({ error: 'Account not found' })
 
