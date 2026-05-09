@@ -30,6 +30,10 @@ Sentry.init({ dsn: process.env.SENTRY_DSN })
 if (!process.env.SENTRY_DSN) logger.warn('SENTRY_DSN not set — error tracking disabled')
 
 const app    = express()
+
+// Trust the first proxy (ngrok, render, etc.) for accurate client IPs in rate limiters
+app.set('trust proxy', 1)
+
 const server = http.createServer(app)
 
 // Parse CLIENT_URL to allow multiple domains (comma-separated)
