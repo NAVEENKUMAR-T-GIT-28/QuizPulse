@@ -25,36 +25,32 @@ export default function HistoryPage() {
   const [exportingId, setExportingId]   = useState(null)
   const [sidebarOpen, setSidebarOpen]   = useState(false)
 
-  useEffect(() => {
-    getSessionHistory(1)
-      .then(data => {
-        setSessions(data.sessions || [])
-        setPage(data.page || 1)
-        setTotalPages(data.totalPages || 1)
-        setTotalSessions(data.totalSessions || 0)
-      })
-      .catch(err => {
-        if (err.response?.status === 401) navigate('/auth')
-        else setFetchError(err.response?.data?.error || 'Failed to load history')
-      })
-      .finally(() => setLoading(false))
-  }, [])
-
-  async function loadMore() {
-    const nextPage = page + 1
-    setLoadingMore(true)
+  const fetchPage = async (pageNum, isInitial = false) => {
+    if (pageNum < 1 || (pageNum > totalPages && !isInitial)) return
+    if (isInitial) setLoading(true)
+    else setLoadingMore(true)
+    
     try {
-      const data = await getSessionHistory(nextPage)
-      setSessions(prev => [...prev, ...(data.sessions || [])])
-      setPage(data.page || nextPage)
+      const data = await getSessionHistory(pageNum)
+      setSessions(data.sessions || [])
+      setPage(data.page || pageNum)
       setTotalPages(data.totalPages || 1)
       setTotalSessions(data.totalSessions || 0)
+      if (!isInitial) {
+        document.querySelector('.scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' })
+      }
     } catch (err) {
-      console.error('Failed to load more sessions:', err)
+      if (err.response?.status === 401) navigate('/auth')
+      else setFetchError(err.response?.data?.error || 'Failed to load history')
     } finally {
+      setLoading(false)
       setLoadingMore(false)
     }
   }
+
+  useEffect(() => {
+    fetchPage(1, true)
+  }, [])
 
   async function handleViewSession(sessionId) {
     if (selected === sessionId) { setSelected(null); setResults(null); return }
@@ -136,7 +132,6 @@ export default function HistoryPage() {
 
   const endedCount   = sessions.filter(s => s.status === 'ended').length
   const totalPlayers = sessions.reduce((acc, s) => acc + s.playerCount, 0)
-  const hasMore      = page < totalPages
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
@@ -171,17 +166,17 @@ export default function HistoryPage() {
               <div className="stat-val" style={{ color: 'var(--indigo-l)' }}>{totalSessions}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Completed</div>
+              <div className="stat-label">Completed (Page)</div>
               <div className="stat-val" style={{ color: 'var(--green-l)' }}>{endedCount}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Total Players</div>
+              <div className="stat-label">Players (Page)</div>
               <div className="stat-val">{totalPlayers}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Avg Players</div>
+              <div className="stat-label">Avg Players (Page)</div>
               <div className="stat-val">
-                {totalSessions > 0 ? Math.round(totalPlayers / sessions.length) : 0}
+                {sessions.length > 0 ? Math.round(totalPlayers / sessions.length) : 0}
               </div>
             </div>
           </div>
@@ -511,25 +506,46 @@ export default function HistoryPage() {
                 )
               })}
 
-              {/* Load More button */}
-              {hasMore && (
-                <div style={{ textAlign: 'center', paddingTop: 20 }}>
-                  <button
-                    className="btn btn-ghost"
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                    style={{ minWidth: 160 }}
-                  >
-                    {loadingMore
-                      ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />Loading…</>
-                      : <><span className="mat sm">expand_more</span>Load More Sessions</>
-                    }
-                  </button>
-                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
-                    Showing {sessions.length} of {totalSessions} sessions
-                  </div>
+              {/* Pagination Controls */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                paddingTop: 20, marginTop: 10, borderTop: '1px solid var(--border)'
+              }}>
+                <div style={{ fontSize: 13, color: 'var(--text3)', display: 'flex', alignItems: 'center' }}>
+                  <span>
+                    Page <strong style={{ color: 'var(--text)' }}>{page}</strong> of <strong style={{ color: 'var(--text)' }}>{totalPages}</strong>
+                  </span>
+                  <span style={{ 
+                    marginLeft: 12, 
+                    opacity: loadingMore ? 1 : 0, 
+                    transition: 'opacity 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    color: 'var(--indigo-l)'
+                  }}>
+                    <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2, marginRight: 6 }} />
+                    Loading…
+                  </span>
                 </div>
-              )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => fetchPage(page - 1)}
+                    disabled={page <= 1 || loadingMore}
+                    style={{ minWidth: 90 }}
+                  >
+                    <span className="mat sm">chevron_left</span> Prev
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => fetchPage(page + 1)}
+                    disabled={page >= totalPages || loadingMore}
+                    style={{ minWidth: 90 }}
+                  >
+                    Next <span className="mat sm">chevron_right</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
