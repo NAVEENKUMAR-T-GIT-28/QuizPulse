@@ -2,13 +2,6 @@ require('dotenv').config()
 
 const logger = require('./utils/logger')
 
-const REQUIRED_ENV = ['JWT_SECRET', 'MONGODB_URI', 'PORT']
-const missing = REQUIRED_ENV.filter(key => !process.env[key])
-if (missing.length > 0) {
-  logger.fatal({ missing }, 'Missing required environment variables')
-  process.exit(1)
-}
-
 const express      = require('express')
 const http         = require('http')
 const { Server }   = require('socket.io')
@@ -47,7 +40,7 @@ const allowedOrigins = process.env.CLIENT_URL
 const isTest = process.env.NODE_ENV === 'test'
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,   // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: isTest ? 1000 : 10,
   message: { error: 'Too many attempts. Please try again in 15 minutes.' },
   standardHeaders: true,
@@ -77,10 +70,6 @@ initQuizSocket(io)
 
 // ─────────────────────────────────────────────
 // Security headers (helmet)
-// Must be first — sets X-Content-Type-Options, X-Frame-Options,
-// Strict-Transport-Security, and 10 other protective headers.
-// CSP is disabled here because Socket.io and the React SPA
-// require a custom policy that varies by deployment host.
 // ─────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }))
 
@@ -91,8 +80,6 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true,
 }))
-// 1mb is ample for any valid quiz payload (25 questions × 4 options × 500 chars ≈ 50KB).
-// The previous 10mb limit was a memory-exhaustion risk.
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: true, limit: '100kb' }))
 app.use(cookieParser())
@@ -131,19 +118,20 @@ app.use((err, req, res, next) => {
 // ─────────────────────────────────────────────
 const PORT = process.env.PORT || 5000
 
-
-// Export `app` so test files can import it without starting a listener.
-// The server only listens when this file is the entry point (not required by a test).
-
-
 module.exports = app
 
 if (require.main === module) {
+  // Validate environment variables only when server starts directly
+  const REQUIRED_ENV = ['JWT_SECRET', 'MONGODB_URI', 'PORT']
+  const missing = REQUIRED_ENV.filter(key => !process.env[key])
+  if (missing.length > 0) {
+    logger.fatal({ missing }, 'Missing required environment variables')
+    process.exit(1)
+  }
+
   mongoose
     .connect(process.env.MONGODB_URI, {
-      // Fail fast if Atlas is unreachable — avoids a 30-second hang on startup.
       serverSelectionTimeoutMS: 5000,
-      // Drop a stale connection after 45 seconds of inactivity.
       socketTimeoutMS: 45000,
     })
     .then(() => {
