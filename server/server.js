@@ -1,6 +1,13 @@
+// Sentry MUST be initialised before any other require() so it can
+// instrument Express, Mongoose, and Node.js core modules correctly.
+const Sentry = require('@sentry/node')
+Sentry.init({ dsn: process.env.SENTRY_DSN })
+
 require('dotenv').config()
 
 const logger = require('./utils/logger')
+
+if (!process.env.SENTRY_DSN) logger.warn('SENTRY_DSN not set — error tracking disabled')
 
 const express      = require('express')
 const http         = require('http')
@@ -17,10 +24,6 @@ const quizRoutes    = require('./routes/quiz')
 const sessionRoutes = require('./routes/session')
 const exportRoutes  = require('./routes/export')
 const { initQuizSocket } = require('./socket/quizSocket')
-const Sentry = require('@sentry/node')
-
-Sentry.init({ dsn: process.env.SENTRY_DSN })
-if (!process.env.SENTRY_DSN) logger.warn('SENTRY_DSN not set — error tracking disabled')
 
 const app    = express()
 
@@ -106,10 +109,14 @@ app.use((req, res) => {
   res.status(404).json({ error: `Route ${req.method} ${req.path} not found` })
 })
 
+// Sentry error handler — must be registered AFTER all routes and BEFORE the
+// custom error handler so Sentry captures request context (URL, user, IP).
+// This is the @sentry/node v8 API; do not use the old Handlers.errorHandler().
+Sentry.setupExpressErrorHandler(app)
+
 // Global error handler
 app.use((err, req, res, next) => {
   logger.error({ err, path: req.path, method: req.method }, 'Unhandled error')
-  Sentry.captureException(err)
   res.status(500).json({ error: 'Internal server error' })
 })
 

@@ -273,6 +273,108 @@ describe('full quiz flow', () => {
     host.emit('quiz:end', { roomCode: session.roomCode })
     host.disconnect()
   })
+
+  // ─── quiz:next ───────────────────────────────────────────────────
+  it('advances to the next question after reveal', async () => {
+    const { session, token } = await seedSession()
+
+    const host   = createClient({ auth: { token } })
+    const player = createClient()
+
+    host.connect()
+    player.connect()
+
+    host.emit('host:join', { roomCode: session.roomCode })
+    await waitFor(host, 'host:joined')
+
+    player.emit('player:join', {
+      roomCode:   session.roomCode,
+      playerName: 'Bob',
+      playerId:   'player-002',
+    })
+    await waitFor(player, 'player:joined')
+
+    // Start → Q1
+    host.emit('quiz:start', { roomCode: session.roomCode })
+    await waitFor(player, 'quiz:question')
+
+    // Reveal Q1 without any answers
+    host.emit('quiz:reveal', { roomCode: session.roomCode })
+    await waitFor(player, 'quiz:result')
+
+    // Advance to Q2
+    host.emit('quiz:next', { roomCode: session.roomCode })
+    const nextQuestion = await waitFor(player, 'quiz:question')
+
+    expect(nextQuestion.index).toBe(1)
+    expect(nextQuestion.text).toBe('Q2?')
+    expect(nextQuestion.options).toHaveLength(2)
+    // correctIndex must NOT be in the payload
+    expect(nextQuestion.correctIndex).toBeUndefined()
+
+    // DB should reflect the new index and live status
+    const dbSession = await Session.findOne({ roomCode: session.roomCode })
+    expect(dbSession.currentIndex).toBe(1)
+    expect(dbSession.status).toBe('live')
+
+    host.emit('quiz:end', { roomCode: session.roomCode })
+    host.disconnect()
+    player.disconnect()
+  })
+
+  // ─── quiz:end ────────────────────────────────────────────────────
+  it('ends the session and broadcasts final leaderboard', async () => {
+    const { session, token } = await seedSession()
+
+    const host   = createClient({ auth: { token } })
+    const player = createClient()
+
+    host.connect()
+    player.connect()
+
+    host.emit('host:join', { roomCode: session.roomCode })
+    await waitFor(host, 'host:joined')
+
+    player.emit('player:join', {
+      roomCode:   session.roomCode,
+      playerName: 'Carol',
+      playerId:   'player-003',
+    })
+    await waitFor(player, 'player:joined')
+
+    // Start → answer → reveal (so Carol has a score)
+    host.emit('quiz:start', { roomCode: session.roomCode })
+    await waitFor(player, 'quiz:question')
+
+    player.emit('player:answer', {
+      roomCode:      session.roomCode,
+      questionIndex: 0,
+      optionIndex:   2,   // correct
+      playerId:      'player-003',
+    })
+    await waitFor(player, 'answer:received')
+
+    host.emit('quiz:reveal', { roomCode: session.roomCode })
+    await waitFor(player, 'quiz:result')
+
+    // End the session
+    host.emit('quiz:end', { roomCode: session.roomCode })
+
+    const ended = await waitFor(player, 'quiz:ended')
+    expect(ended.finalLeaderboard).toBeDefined()
+    expect(Array.isArray(ended.finalLeaderboard)).toBe(true)
+    expect(ended.finalLeaderboard[0].name).toBe('Carol')
+    expect(ended.finalLeaderboard[0].score).toBeGreaterThan(0)
+    expect(ended.sessionId).toBeDefined()
+
+    // DB should mark the session as ended
+    const dbSession = await Session.findOne({ roomCode: session.roomCode })
+    expect(dbSession.status).toBe('ended')
+    expect(dbSession.endedAt).toBeDefined()
+
+    host.disconnect()
+    player.disconnect()
+  })
 })
 
 // ─── Timer ───────────────────────────────────────────────────────

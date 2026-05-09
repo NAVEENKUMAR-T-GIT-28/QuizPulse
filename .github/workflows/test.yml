@@ -21,6 +21,7 @@ jobs:
       NODE_ENV: test
       JWT_SECRET: test-secret-for-ci
       MONGODB_URI: mongodb://127.0.0.1:27017/quizpulse-test
+      TEST_MONGODB_URI: mongodb://127.0.0.1:27017/quizpulse-test
       PORT: 5000
       CLIENT_URL: http://localhost:5173
       PUPPETEER_SKIP_DOWNLOAD: true

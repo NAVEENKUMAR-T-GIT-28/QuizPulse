@@ -26,7 +26,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import { api } from '../api/quizApi'
 import { getActiveSession, setActiveSession, clearActiveSession } from '../context/ActiveSessionContext'
 
 export default function useSessionGuard() {
@@ -41,7 +41,7 @@ export default function useSessionGuard() {
       const local = getActiveSession()
       if (local) {
         try {
-          const { data } = await axios.get(`/api/session/${local.roomCode}`, { withCredentials: true })
+          const { data } = await api.get(`/api/session/${local.roomCode}`)
 
           if (cancelled) return
 
@@ -81,7 +81,7 @@ export default function useSessionGuard() {
       // Only attempt this when the user is authenticated (has a JWT cookie).
       // The request will 401 silently if they're not logged in.
       try {
-        const { data } = await axios.get('/api/session/mine', { withCredentials: true })
+        const { data } = await api.get('/api/session/mine')
 
         if (cancelled) return
 

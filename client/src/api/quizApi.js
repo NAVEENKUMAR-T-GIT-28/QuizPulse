@@ -6,7 +6,7 @@ const BASE = import.meta.env.VITE_SERVER_URL || ''
 
 // All axios calls include credentials so the browser sends the httpOnly cookie.
 // The Authorization header is gone — the cookie replaces it.
-const api = axios.create({
+export const api = axios.create({
   baseURL:         BASE,
   withCredentials: true,   // ← this is the key change
 })
