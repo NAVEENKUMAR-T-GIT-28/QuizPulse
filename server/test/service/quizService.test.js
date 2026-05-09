@@ -48,21 +48,18 @@ describe('buildLeaderboard', () => {
 
 describe('getVoteStats', () => {
   test('counts votes per option correctly', () => {
-    const session = {
-      responses: [
-        { questionIndex: 0, optionIndex: 0 },
-        { questionIndex: 0, optionIndex: 0 },
-        { questionIndex: 0, optionIndex: 2 },
-        { questionIndex: 1, optionIndex: 1 },  // different question, should be ignored
-      ]
-    }
-    const votes = getVoteStats(session, 0, 4)
+    const responses = [
+      { optionIndex: 0 },
+      { optionIndex: 0 },
+      { optionIndex: 2 },
+    ]
+    const votes = getVoteStats(responses, 4)
     expect(votes).toEqual([2, 0, 1, 0])
   })
 
   test('returns all zeros for a question with no responses', () => {
-    const session = { responses: [] }
-    const votes = getVoteStats(session, 0, 4)
+    const responses = []
+    const votes = getVoteStats(responses, 4)
     expect(votes).toEqual([0, 0, 0, 0])
   })
 })

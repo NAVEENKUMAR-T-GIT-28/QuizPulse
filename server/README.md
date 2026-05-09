@@ -78,6 +78,8 @@ Authentication uses **JWT stored in `httpOnly` cookies** — no tokens are ever 
 | `nodemailer` | 8.x | OTP email delivery via Gmail SMTP |
 | `pdfkit` | 0.18 | Fallback PDF generation |
 | `puppeteer` | 21.x | High-quality PDF generation (optional) |
+| `pino` | 9.x | Structured logging |
+| `@sentry/node` | 8.x | Real-time error tracking |
 | `helmet` | 8.x | HTTP security headers |
 | `express-rate-limit` | 8.x | API rate limiting |
 | `sanitize-html` | 2.x | Player name XSS protection |
@@ -85,8 +87,7 @@ Authentication uses **JWT stored in `httpOnly` cookies** — no tokens are ever 
 | `cookie-parser` | 1.x | Parse `httpOnly` JWT cookies |
 | `dotenv` | 16.x | Environment variable loading |
 | `nodemon` | 3.x | Dev auto-restart (devDependency) |
-| `jest` | 29.x | Test framework (devDependency) |
-| `mongodb-memory-server` | 9.x | In-memory MongoDB for tests (devDependency) |
+| `jest` | 30.x | Test framework (devDependency) |
 
 ---
 
@@ -173,11 +174,14 @@ cp .env.example .env
 | `PORT` | ✅ | `5000` | HTTP server port |
 | `NODE_ENV` | ✅ | — | `development` or `production` |
 | `MONGODB_URI` | ✅ | — | MongoDB Atlas connection string (includes DB name) |
+| `TEST_MONGODB_URI` | ❌ | `mongodb://...` | MongoDB connection string for running the test suite |
 | `JWT_SECRET` | ✅ | — | Long random string for JWT signing. Generate with `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"` |
 | `CLIENT_URL` | ✅ | — | Frontend origin(s) for CORS. Comma-separated for multiple (e.g. `https://app.vercel.app,http://localhost:5173`) |
 | `SMTP_USER` | ✅ | — | Gmail address used to send OTP emails |
 | `SMTP_PASS` | ✅ | — | Gmail App Password (not your Gmail password) |
 | `ENABLE_PUPPETEER` | ❌ | `false` | Set to `true` to enable high-quality PDF. Requires 512MB+ RAM |
+| `SENTRY_DSN` | ❌ | — | Sentry DSN for real-time error tracking |
+| `LOG_LEVEL` | ❌ | `info` | Pino log level (`info`, `debug`, `error`, etc.) |
 
 **Generating a secure `JWT_SECRET`:**
 ```bash
@@ -263,24 +267,24 @@ Session {
   players: [
     {
       playerId:   String  (UUID, required)
-      name:       String  (sanitized, max 24 chars)
+      name:       String  (sanitized, max 30 chars)
       score:      Number  (default: 0)
       active:     Boolean (default: true)
-      joinedAt:   Date    (auto)
+      lastJoinedAt: Date  (auto)
     }
   ]
-  questionStats: [
+  voteSnapshots: [
     {
       questionIndex: Number
       votes:         [Number]   (count per option)
-      correctIndex:  Number
-      accuracy:      Number     (percentage 0–100)
     }
   ]
-  startedAt:  Date    (set when status → 'live')
-  endedAt:    Date    (set when status → 'ended')
-  createdAt:  Date    (auto)
-  updatedAt:  Date    (auto)
+  currentIndex: Number    (0-indexed)
+  questionOpenedAt: Date  (set when question is broadcast)
+  startedAt:  Date        (set when status → 'live')
+  endedAt:    Date        (set when status → 'ended')
+  createdAt:  Date        (auto, TTL index: 90 days)
+  updatedAt:  Date        (auto)
 }
 ```
 
@@ -779,7 +783,7 @@ Applied globally in `server.js` via `app.use(helmet())`. Sets:
 
 **Package:** `express-rate-limit`
 
-Applied per-route group:
+Applied per-route group. The server is configured with `app.set('trust proxy', 1)` to correctly parse `X-Forwarded-For` headers when deployed behind reverse proxies like ngrok or Render, ensuring accurate rate limiting.
 
 | Route Group | Limit | Window |
 |-------------|-------|--------|
@@ -1104,7 +1108,9 @@ Formula:
 - A player who answers **incorrectly** earns 0 points regardless of speed.
 - Speed bonus is **clamped**: if `elapsed > timeLimit` (edge case from network lag), the bonus is 0, not negative.
 
-Points are accumulated in `room.players.get(playerId).score` over all questions.
+Points are calculated during the **Reveal Phase** using an optimized aggregation-based approach (see [Performance Optimizations](#performance-optimizations)).
+
+Points are accumulated in `session.players[index].score` and persisted to the database once per question.
 
 ---
 
@@ -1239,27 +1245,47 @@ In production, 5xx error messages are hidden from clients to prevent information
 
 ---
 
+## Observability & Logging
+
+- **Structured Logging (`pino`)**: Replaces global `console.log` with a centralized Pino logger (`utils/logger.js`). Provides structured JSON logs, better performance, and log levels controlled by the `LOG_LEVEL` environment variable.
+- **Error Tracking (`@sentry/node`)**: Sentry is integrated into the global Express error handler to capture unhandled exceptions automatically. Requires `SENTRY_DSN`.
+
+---
+
+## Performance Optimizations
+
+To handle high-concurrency sessions (100+ players) without latency degradation, the backend implements several low-level optimizations:
+
+### 1. MongoDB Aggregation Pipeline
+In the **Reveal Phase**, the server must fetch and process player responses. Traditional `find()` and in-memory filtering scale poorly as the `responses` array grows across questions.
+- **Solution**: Uses `Session.aggregate` with `$unwind` and `$match` to fetch **only** the responses for the current question directly from the database. This resolves the $O(N)$ filtering bottleneck in Node.js.
+
+### 2. O(1) Player Lookups
+Instead of repeatedly calling `.find()` on the `session.players` array (which is $O(M)$ where M is player count), the server builds a temporary `Map` ($O(1)$ lookup) during the scoring phase.
+- **Complexity**: Reduces scoring from $O(R \times M)$ to $O(R)$, where R is the number of responses.
+
+### 3. Positional Atomic Updates (`bulkWrite`)
+Updating hundreds of response subdocuments individually would normally require re-saving the entire `session` document, which can be several megabytes for large quizzes.
+- **Solution**: Uses `Session.bulkWrite()` with targeted `$set` operations on `responses.$.isCorrect` and `responses.$.pointsAwarded`. This allows MongoDB to update only the modified fields in place without rewriting the entire document.
+
+---
+---
+
 ## Testing
 
-**Files:** `test/auth.test.js`, `test/quiz.test.js`, `test/session.test.js`
+**Files:** `test/routes/auth.test.js`, `test/routes/quiz.test.js`, `test/socket/quizSocket.test.js`
 
-Tests use **Jest** with **mongodb-memory-server** (an in-memory MongoDB instance) so no real Atlas connection is needed.
+Tests use **Jest** and require a dedicated test database (local or Atlas) defined by `TEST_MONGODB_URI`. 
 
-**Setup (shared across test files):**
+**Setup (Global Test Guard):**
+To prevent accidental deletion of production data, the test suite uses `test/helpers/jestGlobalSetup.js` which forcefully removes `MONGODB_URI` from the environment and ensures `TEST_MONGODB_URI` is used. A hard guard in `test/helpers/db.js` prevents tests from running against non-test Atlas clusters.
+
 ```js
-beforeAll(async () => {
-  mongod = await MongoMemoryServer.create()
-  await mongoose.connect(mongod.getUri())
-})
-
-afterAll(async () => {
-  await mongoose.disconnect()
-  await mongod.stop()
-})
-
+// Shared DB setup in tests
+beforeAll(() => db.connect())
+afterAll(()  => db.disconnect())
 afterEach(async () => {
-  // Clear all collections between tests
-  await Promise.all(Object.values(mongoose.connection.collections).map(c => c.deleteMany({})))
+  await db.clearCollections()
 })
 ```
 

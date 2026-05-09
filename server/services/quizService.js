@@ -1,3 +1,6 @@
+const mongoose = require('mongoose')
+const Session = require('../models/Session')
+
 const BASE_POINTS = 500
 const MAX_SPEED_BONUS = 500
 
@@ -9,73 +12,58 @@ const MAX_SPEED_BONUS = 500
 function calculatePoints(isCorrect, answeredAt, questionOpenedAt, timeLimit) {
   if (!isCorrect) return 0
 
-  const elapsedSeconds = (new Date(answeredAt) - new Date(questionOpenedAt)) / 1000
-  const timeRatio = Math.max(0, 1 - elapsedSeconds / timeLimit)
-  const speedBonus = Math.floor(timeRatio * MAX_SPEED_BONUS)
+  const elapsedSeconds =
+    (new Date(answeredAt) - new Date(questionOpenedAt)) / 1000
+
+  const timeRatio = Math.max(
+    0,
+    1 - elapsedSeconds / timeLimit
+  )
+
+  const speedBonus = Math.floor(
+    timeRatio * MAX_SPEED_BONUS
+  )
 
   return BASE_POINTS + speedBonus
 }
 
 /**
- * Update a session's player scores after a question is revealed.
- * Returns the updated players array sorted by score (for leaderboard).
- */
-function applyScores(session, questionIndex, questionOpenedAt, timeLimit) {
-  const responses = session.responses.filter(
-    (r) => r.questionIndex === questionIndex
-  )
-
-  for (const response of responses) {
-    const points = calculatePoints(
-      response.isCorrect,
-      response.answeredAt,
-      questionOpenedAt,
-      timeLimit
-    )
-    response.pointsAwarded = points
-
-    const player = session.players.find((p) => p.playerId === response.playerId)
-    if (player) {
-      player.score += points
-    }
-  }
-
-  return [...session.players].sort((a, b) => b.score - a.score)
-}
-
-/**
- * Build a leaderboard array from a sorted players list.
- * Includes rank change compared to previous leaderboard snapshot.
+ * Build leaderboard from players.
  */
 function buildLeaderboard(players, previousLeaderboard = []) {
-  // Always ensure the array is sorted descending by score                                          
-  const sortedPlayers = [...players].sort((a, b) => b.score - a.score)
+  const sortedPlayers = [...players].sort(
+    (a, b) => b.score - a.score
+  )
 
   return sortedPlayers.map((player, index) => {
     const prevRank = previousLeaderboard.findIndex(
       (p) => p.playerId === player.playerId
     )
-    const rankChange = prevRank === -1 ? 0 : prevRank - index
+
+    const rankChange =
+      prevRank === -1 ? 0 : prevRank - index
 
     return {
       rank: index + 1,
       playerId: player.playerId,
       name: player.name,
       score: player.score,
-      rankChange  // positive = moved up, negative = moved down
+      rankChange,
     }
   })
 }
 
 /**
- * Aggregates vote counts for a specific question.
+ * Aggregate vote counts.
  */
-function getVoteStats(session, questionIndex, optionCount) {
+function getVoteStats(responses, optionCount) {
   const votes = new Array(optionCount).fill(0)
-  const responses = session.responses.filter((r) => r.questionIndex === questionIndex)
 
   for (const r of responses) {
-    if (r.optionIndex >= 0 && r.optionIndex < optionCount) {
+    if (
+      r.optionIndex >= 0 &&
+      r.optionIndex < optionCount
+    ) {
       votes[r.optionIndex]++
     }
   }
@@ -84,59 +72,159 @@ function getVoteStats(session, questionIndex, optionCount) {
 }
 
 /**
- * Handles the logic for revealing an answer:
- * 1. Mark responses as correct/wrong
- * 2. Calculate and apply points
- * 3. Generate vote snapshot
- * 4. Return summary for broadcast
+ * Process reveal event.
  */
-async function processReveal(session, quiz, resolvedTimeLimit) {
+async function processReveal(
+  session,
+  quiz,
+  resolvedTimeLimit
+) {
   const qIndex = session.currentIndex
+
   const question = quiz.questions[qIndex]
+
   const correctIndex = question.correctIndex
 
-  // Use the resolved limit passed in from the socket handler
-  const timeLimit = resolvedTimeLimit ?? question.timeLimit
+  const timeLimit =
+    resolvedTimeLimit ?? question.timeLimit
 
-  // 1. Mark responses for this question
-  const responses = session.responses.filter((r) => r.questionIndex === qIndex)
-  for (const r of responses) {
-    r.isCorrect = (r.optionIndex === correctIndex)
-  }
+  /**
+   * Fetch only current question responses
+   */
+  const aggResult = await Session.aggregate([
+    {
+      $match: {
+        _id: session._id,
+      },
+    },
+    {
+      $unwind: '$responses',
+    },
+    {
+      $match: {
+        'responses.questionIndex': qIndex,
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        responses: {
+          $push: '$responses',
+        },
+      },
+    },
+  ])
 
-  // 2. Calculate and apply points (updates session.players in place)
-  const sortedPlayers = applyScores(
-    session,
-    qIndex,
-    session.questionOpenedAt,
-    timeLimit
+  const responses =
+    aggResult.length > 0
+      ? aggResult[0].responses
+      : []
+
+  /**
+   * O(1) player lookup
+   */
+  const playerMap = new Map(
+    session.players.map((p) => [
+      p.playerId,
+      p,
+    ])
   )
 
-  // Build a map of { playerId -> pointsAwarded } for this question
+  const bulkOps = []
+
   const pointsMap = {}
+
+  /**
+   * Process responses
+   */
   for (const r of responses) {
-    pointsMap[r.playerId] = r.pointsAwarded
+    const isCorrect =
+      r.optionIndex === correctIndex
+
+    const points = calculatePoints(
+      isCorrect,
+      r.answeredAt,
+      session.questionOpenedAt,
+      timeLimit
+    )
+
+    pointsMap[r.playerId] = points
+
+    /**
+     * Update player score
+     */
+    const player = playerMap.get(r.playerId)
+
+    if (player) {
+      player.score += points
+    }
+
+    /**
+     * Safe ObjectId conversion
+     */
+    bulkOps.push({
+      updateOne: {
+        filter: {
+          _id: session._id,
+          'responses._id':
+            new mongoose.Types.ObjectId(r._id),
+        },
+        update: {
+          $set: {
+            'responses.$.isCorrect':
+              isCorrect,
+            'responses.$.pointsAwarded':
+              points,
+          },
+        },
+      },
+    })
   }
 
-  // 3. Generate and save vote snapshot
-  const votes = getVoteStats(session, qIndex, question.options.length)
-  session.voteSnapshots.push({ questionIndex: qIndex, votes })
+  /**
+   * Batch update response subdocuments
+   */
+  if (bulkOps.length > 0) {
+    await Session.bulkWrite(bulkOps)
+  }
 
+  /**
+   * Generate votes
+   */
+  const votes = getVoteStats(
+    responses,
+    question.options.length
+  )
+
+  /**
+   * Save vote snapshot
+   */
+  session.voteSnapshots.push({
+    questionIndex: qIndex,
+    votes,
+  })
+
+  /**
+   * Save updated players + snapshots
+   */
   await session.save()
 
-  // 4. Return results for the socket broadcast
+  const sortedPlayers = Array.from(
+    playerMap.values()
+  ).sort((a, b) => b.score - a.score)
+
   return {
     correctIndex,
     votes,
-    leaderboard: buildLeaderboard(sortedPlayers),
+    leaderboard:
+      buildLeaderboard(sortedPlayers),
     pointsMap,
   }
 }
 
 module.exports = {
   calculatePoints,
-  applyScores,
   buildLeaderboard,
   getVoteStats,
-  processReveal
+  processReveal,
 }

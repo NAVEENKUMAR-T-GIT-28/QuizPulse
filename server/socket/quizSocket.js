@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken')
 const sanitizeHtml = require('sanitize-html')
 const Session = require('../models/Session')
 const Quiz = require('../models/Quiz')
-const { processReveal, buildLeaderboard, getVoteStats } = require('../services/quizService')
+const { processReveal, buildLeaderboard } = require('../services/quizService')
 const logger = require('../utils/logger')
 
 /**
