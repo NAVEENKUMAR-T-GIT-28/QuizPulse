@@ -653,18 +653,22 @@ Returns the host's current active (non-ended) session, if one exists. Used by `u
 
 #### `GET /api/session/history`
 
-Returns all sessions (all statuses) for the authenticated host, newest first.
+Returns a paginated list of all sessions (all statuses) for the authenticated host, newest first.
 
 **Auth:** ✅ JWT cookie
+**Query Params:** `?page=N` (default: 1)
 
-**Logic:** `Session.find({ host: req.user.id }).populate('quiz', 'title').sort({ createdAt: -1 })`.
+**Logic:** `Session.find({ host: req.user.id }).populate('quiz', 'title').sort({ createdAt: -1 }).skip(skip).limit(limit).lean()`.
 
 **Response `200`:**
 ```json
 {
+  "page": 1,
+  "totalPages": 5,
+  "totalSessions": 98,
   "sessions": [
     {
-      "id": "...",
+      "sessionId": "...",
       "roomCode": "3X7KFB",
       "quizTitle": "My Quiz",
       "status": "ended",
@@ -1136,7 +1140,9 @@ Only available when `ENABLE_PUPPETEER=true`. Disabled by default because Puppete
 3. Includes: session metadata header, leaderboard table, per-question breakdown with vote bars.
 4. Returns a `Buffer` by piping the document to a `concat-stream` or accumulating chunks.
 
-PDFKit produces vector PDF without launching a browser, making it suitable for low-resource environments.
+PDFKit produces vector PDF without launching a browser, making it suitable for low-resource environments. Both services are optimized to handle both Mongoose documents and `.lean()` plain objects via duck-typing checks for `.toObject()`.
+
+**Resiliency:** If high-quality generation fails (e.g. due to OOM), the server returns a `pdf_quality_failed` error, prompting the client to automatically retry using the standard PDFKit generator.
 
 ---
 
@@ -1267,6 +1273,19 @@ Instead of repeatedly calling `.find()` on the `session.players` array (which is
 ### 3. Positional Atomic Updates (`bulkWrite`)
 Updating hundreds of response subdocuments individually would normally require re-saving the entire `session` document, which can be several megabytes for large quizzes.
 - **Solution**: Uses `Session.bulkWrite()` with targeted `$set` operations on `responses.$.isCorrect` and `responses.$.pointsAwarded`. This allows MongoDB to update only the modified fields in place without rewriting the entire document.
+
+### 4. O(1) Map-Based Lookups
+Previously, retrieving vote snapshots or matching responses during results processing used nested `.find()` or `.filter()` calls inside loops, resulting in $O(N^2)$ complexity.
+- **Solution**: Implemented `snapshotMap = new Map(snapshots.map(v => [v.questionIndex, v]))`. 
+- **Impact**: All snapshot lookups in the results route and PDF services are now $O(1)$, ensuring stable performance even for quizzes with 50+ questions and hundreds of votes.
+
+### 5. Read-Only Optimization (`.lean()`)
+Most GET requests only require data for serialization and do not need Mongoose's "Change Tracking" or "Virtuals."
+- **Solution**: Applied `.lean()` to all read-only queries in `quiz`, `session`, and `export` routes.
+- **Impact**: Reduces memory overhead per request and speeds up serialization by skipping the overhead of Mongoose document hydration.
+
+### 6. Room Code Collision Guard
+The room code generation loop is optimized to handle rare collisions by checking existence in the database before allocation, while ensuring the loop is finite to prevent hang conditions.
 
 ---
 ---

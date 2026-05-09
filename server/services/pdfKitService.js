@@ -434,13 +434,19 @@ async function generateFallbackPDF(session, quiz) {
       // ── Shared data (mirrors pdfService.js generateSessionPDF) ──────────
       const leaderboard = [...session.players].sort((a, b) => b.score - a.score)
 
+      // O(n) Map lookup instead of O(n²) nested .find()
+      const snapshotMap = new Map(
+        session.voteSnapshots.map(v => [v.questionIndex, v])
+      )
+
       const questionStats = quiz.questions.map((q, i) => {
-        const snap = session.voteSnapshots.find((v) => v.questionIndex === i)
+        const snap = snapshotMap.get(i)
         const votes = snap ? snap.votes : new Array(q.options.length).fill(0)
         const total = votes.reduce((a, b) => a + b, 0)
         const percentages = votes.map((v) => (total > 0 ? Math.round((v / total) * 100) : 0))
         const correctRate = percentages[q.correctIndex] ?? 0
-        return { ...q.toObject(), votes, total, percentages, correctRate, index: i }
+        const qObj = typeof q.toObject === 'function' ? q.toObject() : q
+        return { ...qObj, votes, total, percentages, correctRate, index: i }
       })
 
       const avgAccuracy = questionStats.length

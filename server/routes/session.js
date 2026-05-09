@@ -16,7 +16,7 @@ router.get('/mine', authMiddleware, asyncHandler(async (req, res) => {
   const session = await Session.findOne({
     hostId: req.user.id,
     status: { $in: ['waiting', 'live', 'revealing'] },
-  }).select('roomCode status _id').sort({ createdAt: -1 })
+  }).select('roomCode status _id').sort({ createdAt: -1 }).lean()
 
   if (!session) return res.json({ session: null })
 
@@ -31,23 +31,44 @@ router.get('/mine', authMiddleware, asyncHandler(async (req, res) => {
 
 // GET /api/session/history — all sessions for this host (protected)
 router.get('/history', authMiddleware, asyncHandler(async (req, res) => {
-  const sessions = await Session.find({ hostId: req.user.id })
+
+  const page = Math.max(1, Number(req.query.page) || 1)
+  const limit = 20
+  const skip = (page - 1) * limit
+
+  const sessions = await Session.find({
+    hostId: req.user.id
+  })
     .populate('quizId', 'title')
     .select('roomCode status players startedAt endedAt quizId createdAt')
     .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean()
+
+  const total = await Session.countDocuments({
+    hostId: req.user.id
+  })
 
   const formatted = sessions.map((s) => ({
-    sessionId:    s._id,
-    roomCode:     s.roomCode,
-    status:       s.status,
-    quizTitle:    s.quizId?.title || 'Deleted quiz',
-    playerCount:  s.players.filter(p => p.active !== false).length,
-    startedAt:    s.startedAt,
-    endedAt:      s.endedAt,
-    createdAt:    s.createdAt
+    sessionId: s._id,
+    roomCode: s.roomCode,
+    status: s.status,
+    quizTitle: s.quizId?.title || 'Deleted quiz',
+    playerCount: s.players.filter(
+      p => p.active !== false
+    ).length,
+    startedAt: s.startedAt,
+    endedAt: s.endedAt,
+    createdAt: s.createdAt
   }))
 
-  res.json({ sessions: formatted })
+  res.json({
+    page,
+    totalPages: Math.ceil(total / limit),
+    totalSessions: total,
+    sessions: formatted
+  })
 }))
 
 // ─────────────────────────────────────────────
@@ -59,7 +80,7 @@ router.get('/:sessionId/results', authMiddleware, asyncHandler(async (req, res) 
   const session = await Session.findOne({
     _id: req.params.sessionId,
     hostId: req.user.id
-  }).populate('quizId')
+  }).populate('quizId').lean()
 
   if (!session) return res.status(404).json({ error: 'Session not found' })
 
@@ -70,8 +91,13 @@ router.get('/:sessionId/results', authMiddleware, asyncHandler(async (req, res) 
     .sort((a, b) => b.score - a.score)
     .map((p, i) => ({ rank: i + 1, name: p.name, score: p.score }))
 
+  // O(n) Map lookup instead of O(n²) nested .find()
+  const snapshotMap = new Map(
+    session.voteSnapshots.map(v => [v.questionIndex, v])
+  )
+
   const questionStats = quiz.questions.map((q, i) => {
-    const snapshot = session.voteSnapshots.find((v) => v.questionIndex === i)
+    const snapshot = snapshotMap.get(i)
     const votes = snapshot ? snapshot.votes : new Array(q.options.length).fill(0)
     const total = votes.reduce((a, b) => a + b, 0)
 
@@ -108,7 +134,7 @@ router.delete('/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
   const session = await Session.findOne({
     _id: req.params.sessionId,
     hostId: req.user.id
-  })
+  }).select('_id').lean()
 
   if (!session) {
     // Already deleted or doesn't exist — return success for idempotency
@@ -127,7 +153,7 @@ router.delete('/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
 router.get('/:roomCode', asyncHandler(async (req, res) => {
   const session = await Session.findOne({
     roomCode: req.params.roomCode.toUpperCase()
-  }).populate('quizId', 'title description questions')
+  }).populate('quizId', 'title description questions').lean()
 
   if (!session) {
     return res.status(404).json({ error: 'Room not found' })
@@ -152,7 +178,7 @@ router.get('/:roomCode', asyncHandler(async (req, res) => {
 router.get('/:roomCode/verify-host', authMiddleware, asyncHandler(async (req, res) => {
   const session = await Session.findOne({
     roomCode: req.params.roomCode.toUpperCase()
-  }).select('hostId status')
+  }).select('hostId status').lean()
 
   if (!session) {
     return res.status(404).json({ error: 'Session not found' })

@@ -56,13 +56,14 @@ router.get('/', asyncHandler(async (req, res) => {
   const quizzes = await Quiz.find({ hostId: req.user.id })
     .select('title description questions createdAt updatedAt')
     .sort({ createdAt: -1 })
+    .lean()
 
   res.json({ quizzes })
 }))
 
 // GET /api/quiz/:id — single quiz with all questions
 router.get('/:id', asyncHandler(async (req, res) => {
-  const quiz = await Quiz.findOne({ _id: req.params.id, hostId: req.user.id })
+  const quiz = await Quiz.findOne({ _id: req.params.id, hostId: req.user.id }).lean()
   if (!quiz) return res.status(404).json({ error: 'Quiz not found' })
   res.json({ quiz })
 }))

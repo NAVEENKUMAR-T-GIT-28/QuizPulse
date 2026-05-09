@@ -39,7 +39,7 @@ async function loadSessionAndQuiz(req, res) {
   const session = await Session.findOne({
     _id:    req.params.sessionId,
     hostId: req.user.id,
-  })
+  }).lean()
 
   if (!session) {
     res.status(404).json({ error: 'Session not found' })
@@ -50,7 +50,7 @@ async function loadSessionAndQuiz(req, res) {
     return null
   }
 
-  const quiz = await Quiz.findById(session.quizId)
+  const quiz = await Quiz.findById(session.quizId).lean()
   if (!quiz) {
     res.status(404).json({ error: 'Quiz not found' })
     return null
