@@ -103,8 +103,8 @@ export async function verifyHostSession(roomCode) {
   return data
 }
 
-export async function getSessionHistory() {
-  const { data } = await api.get('/api/session/history')
+export async function getSessionHistory(page = 1) {
+  const { data } = await api.get('/api/session/history', { params: { page } })
   return data
 }
 

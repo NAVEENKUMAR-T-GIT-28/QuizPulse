@@ -9,7 +9,11 @@ export default function HistoryPage() {
 
   const [sessions, setSessions]       = useState([])
   const [loading, setLoading]         = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [fetchError, setFetchError]   = useState(null)
+  const [page, setPage]               = useState(1)
+  const [totalPages, setTotalPages]   = useState(1)
+  const [totalSessions, setTotalSessions] = useState(0)
   const [selected, setSelected]       = useState(null)   // sessionId being viewed
   const [results, setResults]         = useState(null)
   const [resultsLoading, setResultsLoading] = useState(false)
@@ -22,14 +26,35 @@ export default function HistoryPage() {
   const [sidebarOpen, setSidebarOpen]   = useState(false)
 
   useEffect(() => {
-    getSessionHistory()
-      .then(data => setSessions(data.sessions || []))
+    getSessionHistory(1)
+      .then(data => {
+        setSessions(data.sessions || [])
+        setPage(data.page || 1)
+        setTotalPages(data.totalPages || 1)
+        setTotalSessions(data.totalSessions || 0)
+      })
       .catch(err => {
         if (err.response?.status === 401) navigate('/auth')
         else setFetchError(err.response?.data?.error || 'Failed to load history')
       })
       .finally(() => setLoading(false))
   }, [])
+
+  async function loadMore() {
+    const nextPage = page + 1
+    setLoadingMore(true)
+    try {
+      const data = await getSessionHistory(nextPage)
+      setSessions(prev => [...prev, ...(data.sessions || [])])
+      setPage(data.page || nextPage)
+      setTotalPages(data.totalPages || 1)
+      setTotalSessions(data.totalSessions || 0)
+    } catch (err) {
+      console.error('Failed to load more sessions:', err)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   async function handleViewSession(sessionId) {
     if (selected === sessionId) { setSelected(null); setResults(null); return }
@@ -53,6 +78,7 @@ export default function HistoryPage() {
     try {
       await deleteSession(deleteTarget.sessionId)
       setSessions(prev => prev.filter(s => s.sessionId !== deleteTarget.sessionId))
+      setTotalSessions(prev => Math.max(0, prev - 1))
       if (selected === deleteTarget.sessionId) { setSelected(null); setResults(null) }
       setDeleteTarget(null)
     } catch (err) {
@@ -110,6 +136,7 @@ export default function HistoryPage() {
 
   const endedCount   = sessions.filter(s => s.status === 'ended').length
   const totalPlayers = sessions.reduce((acc, s) => acc + s.playerCount, 0)
+  const hasMore      = page < totalPages
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
@@ -141,7 +168,7 @@ export default function HistoryPage() {
           <div className="grid-4" style={{ marginBottom: 32 }}>
             <div className="stat-card">
               <div className="stat-label">Total Sessions</div>
-              <div className="stat-val" style={{ color: 'var(--indigo-l)' }}>{sessions.length}</div>
+              <div className="stat-val" style={{ color: 'var(--indigo-l)' }}>{totalSessions}</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">Completed</div>
@@ -154,7 +181,7 @@ export default function HistoryPage() {
             <div className="stat-card">
               <div className="stat-label">Avg Players</div>
               <div className="stat-val">
-                {sessions.length > 0 ? Math.round(totalPlayers / sessions.length) : 0}
+                {totalSessions > 0 ? Math.round(totalPlayers / sessions.length) : 0}
               </div>
             </div>
           </div>
@@ -483,6 +510,26 @@ export default function HistoryPage() {
                   </div>
                 )
               })}
+
+              {/* Load More button */}
+              {hasMore && (
+                <div style={{ textAlign: 'center', paddingTop: 20 }}>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    style={{ minWidth: 160 }}
+                  >
+                    {loadingMore
+                      ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />Loading…</>
+                      : <><span className="mat sm">expand_more</span>Load More Sessions</>
+                    }
+                  </button>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
+                    Showing {sessions.length} of {totalSessions} sessions
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
