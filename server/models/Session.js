@@ -162,10 +162,7 @@ const SessionSchema = new mongoose.Schema({
  * Performance indexes
  */
 
-SessionSchema.index(
-  { roomCode: 1 },
-  { unique: true }
-)
+
 
 SessionSchema.index({ hostId: 1 })
 
