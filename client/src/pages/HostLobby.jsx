@@ -27,6 +27,7 @@ export default function HostLobby() {
   const [authChecked, setAuthChecked] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   // ── Step 1: verify ownership before doing anything else ──────────────────
   useEffect(() => {
@@ -111,7 +112,28 @@ export default function HostLobby() {
 
   function handleCopyLink() {
     const url = `${window.location.origin}/join/${roomCode}`
-    navigator.clipboard.writeText(url).catch(() => { })
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url)
+        .then(() => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        })
+        .catch((err) => console.error('Failed to copy link:', err))
+    } else {
+      // Fallback for non-secure contexts or older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = url
+      document.body.appendChild(textArea)
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (err) {
+        console.error('Fallback copy failed:', err)
+      }
+      document.body.removeChild(textArea)
+    }
   }
 
   function handleCancelSession() {
@@ -205,8 +227,13 @@ export default function HostLobby() {
                 </div>
                 <div className="room-code-num">{roomCode}</div>
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 14 }}>
-                  <button className="btn btn-ghost btn-sm" onClick={handleCopyLink}>
-                    <span className="mat sm">content_copy</span>Copy link
+                  <button 
+                    className={`btn btn-sm ${copied ? 'btn-success' : 'btn-ghost'}`} 
+                    onClick={handleCopyLink}
+                    style={{ transition: 'all 0.2s ease' }}
+                  >
+                    <span className="mat sm">{copied ? 'check' : 'content_copy'}</span>
+                    {copied ? 'Copied!' : 'Copy link'}
                   </button>
                 </div>
               </div>

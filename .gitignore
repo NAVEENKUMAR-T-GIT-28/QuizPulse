@@ -30,5 +30,6 @@ coverage/
 App/
 MyApp/
 
+server/scratch/
 server/services/pdfRenderer.py
 UI/
