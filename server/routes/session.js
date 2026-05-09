@@ -62,9 +62,7 @@ router.get('/history', authMiddleware, asyncHandler(async (req, res) => {
       roomCode: s.roomCode,
       status: s.status,
       quizTitle: s.quizId?.title || 'Deleted quiz',
-      playerCount: s.players.filter(
-        p => p.active !== false
-      ).length,
+      playerCount: s.players.length,
       startedAt: s.startedAt,
       endedAt: s.endedAt,
       createdAt: s.createdAt

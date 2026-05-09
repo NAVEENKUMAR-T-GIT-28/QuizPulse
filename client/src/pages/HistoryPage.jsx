@@ -166,15 +166,15 @@ export default function HistoryPage() {
               <div className="stat-val" style={{ color: 'var(--indigo-l)' }}>{totalSessions}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Completed (Page)</div>
+              <div className="stat-label">Completed</div>
               <div className="stat-val" style={{ color: 'var(--green-l)' }}>{endedCount}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Players (Page)</div>
+              <div className="stat-label">Players</div>
               <div className="stat-val">{totalPlayers}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Avg Players (Page)</div>
+              <div className="stat-label">Avg Players</div>
               <div className="stat-val">
                 {sessions.length > 0 ? Math.round(totalPlayers / sessions.length) : 0}
               </div>
