@@ -3,6 +3,7 @@ const Session = require('../models/Session')
 const Quiz = require('../models/Quiz')
 const authMiddleware = require('../middleware/authMiddleware')
 const asyncHandler = require('../utils/asyncHandler')
+const logger = require('../utils/logger')
 
 const router = express.Router()
 
@@ -13,20 +14,25 @@ const router = express.Router()
 // GET /api/session/mine — returns the host's current active (non-ended) session, if any (protected)
 // Used by useSessionGuard on fresh tab load to redirect host back into their live session.
 router.get('/mine', authMiddleware, asyncHandler(async (req, res) => {
-  const session = await Session.findOne({
-    hostId: req.user.id,
-    status: { $in: ['waiting', 'live', 'revealing'] },
-  }).select('roomCode status _id').sort({ createdAt: -1 }).lean()
+  try {
+    const session = await Session.findOne({
+      hostId: req.user.id,
+      status: { $in: ['waiting', 'live', 'revealing'] },
+    }).select('roomCode status _id').sort({ createdAt: -1 }).lean()
 
-  if (!session) return res.json({ session: null })
+    if (!session) return res.json({ session: null })
 
-  res.json({
-    session: {
-      roomCode:  session.roomCode,
-      status:    session.status,
-      sessionId: session._id,
-    },
-  })
+    res.json({
+      session: {
+        roomCode:  session.roomCode,
+        status:    session.status,
+        sessionId: session._id,
+      },
+    })
+  } catch (err) {
+    logger.error({ err, userId: req.user?.id }, 'session fetch failed')
+    throw err
+  }
 }))
 
 // GET /api/session/history — all sessions for this host (protected)
@@ -36,39 +42,44 @@ router.get('/history', authMiddleware, asyncHandler(async (req, res) => {
   const limit = 20
   const skip = (page - 1) * limit
 
-  const sessions = await Session.find({
-    hostId: req.user.id
-  })
-    .populate('quizId', 'title')
-    .select('roomCode status players startedAt endedAt quizId createdAt')
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .lean()
+  try {
+    const sessions = await Session.find({
+      hostId: req.user.id
+    })
+      .populate('quizId', 'title')
+      .select('roomCode status players startedAt endedAt quizId createdAt')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
 
-  const total = await Session.countDocuments({
-    hostId: req.user.id
-  })
+    const total = await Session.countDocuments({
+      hostId: req.user.id
+    })
 
-  const formatted = sessions.map((s) => ({
-    sessionId: s._id,
-    roomCode: s.roomCode,
-    status: s.status,
-    quizTitle: s.quizId?.title || 'Deleted quiz',
-    playerCount: s.players.filter(
-      p => p.active !== false
-    ).length,
-    startedAt: s.startedAt,
-    endedAt: s.endedAt,
-    createdAt: s.createdAt
-  }))
+    const formatted = sessions.map((s) => ({
+      sessionId: s._id,
+      roomCode: s.roomCode,
+      status: s.status,
+      quizTitle: s.quizId?.title || 'Deleted quiz',
+      playerCount: s.players.filter(
+        p => p.active !== false
+      ).length,
+      startedAt: s.startedAt,
+      endedAt: s.endedAt,
+      createdAt: s.createdAt
+    }))
 
-  res.json({
-    page,
-    totalPages: Math.ceil(total / limit),
-    totalSessions: total,
-    sessions: formatted
-  })
+    res.json({
+      page,
+      totalPages: Math.ceil(total / limit),
+      totalSessions: total,
+      sessions: formatted
+    })
+  } catch (err) {
+    logger.error({ err, userId: req.user?.id }, 'session history fetch failed')
+    throw err
+  }
 }))
 
 // ─────────────────────────────────────────────
@@ -141,8 +152,13 @@ router.delete('/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
     return res.json({ message: 'Session deleted or not found' })
   }
 
-  await Session.deleteOne({ _id: session._id })
-  res.json({ message: 'Session deleted' })
+  try {
+    await Session.deleteOne({ _id: session._id })
+    res.json({ message: 'Session deleted' })
+  } catch (err) {
+    logger.error({ err, userId: req.user?.id }, 'session delete failed')
+    throw err
+  }
 }))
 
 // ─────────────────────────────────────────────

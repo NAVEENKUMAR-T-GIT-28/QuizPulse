@@ -12,6 +12,7 @@ const authMiddleware = require('../middleware/authMiddleware')
 const asyncHandler   = require('../utils/asyncHandler')
 const { sendOtpEmail } = require('../services/emailService')
 const logger         = require('../utils/logger')
+const rateLimit      = require('express-rate-limit')
 
 const router = express.Router()
 
@@ -198,7 +199,8 @@ router.post('/login', asyncHandler(async (req, res) => {
 // ─── Refresh Token ────────────────────────────────────────────────────────
 //
 // POST /api/auth/refresh
-router.post('/refresh', asyncHandler(async (req, res) => {
+const refreshLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 })
+router.post('/refresh', refreshLimiter, asyncHandler(async (req, res) => {
   const token = req.cookies?.token
   if (!token) return res.status(401).json({ error: 'No token provided' })
 
@@ -207,7 +209,7 @@ router.post('/refresh', asyncHandler(async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true })
     
     const user = await User.findById(decoded.id)
-    if (!user) return res.status(404).json({ error: 'User not found' })
+    if (!user || user.disabled) return res.status(401).json({ error: 'Account not found' })
 
     const newToken = signToken(user)
     res.cookie('token', newToken, COOKIE_OPTIONS)

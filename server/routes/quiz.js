@@ -4,6 +4,7 @@ const Session = require('../models/Session')
 const authMiddleware = require('../middleware/authMiddleware')
 const generateRoomCode = require('../utils/roomCode')
 const asyncHandler = require('../utils/asyncHandler')
+const logger = require('../utils/logger')
 
 const router = express.Router()
 
@@ -77,15 +78,20 @@ router.post('/', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: validationErrors.join('; ') })
   }
 
-  const quiz = await Quiz.create({
-    hostId: req.user.id,
-    title,
-    description: description || '',
-    timerMode: timerMode || 'per-question',
-    quizTimeLimit: quizTimeLimit || 10,
-    questions
-  })
-  res.status(201).json({ quiz })
+  try {
+    const quiz = await Quiz.create({
+      hostId: req.user.id,
+      title,
+      description: description || '',
+      timerMode: timerMode || 'per-question',
+      quizTimeLimit: quizTimeLimit || 10,
+      questions
+    })
+    res.status(201).json({ quiz })
+  } catch (err) {
+    logger.error({ err, userId: req.user?.id }, 'quiz create failed')
+    throw err
+  }
 }))
 
 
@@ -138,15 +144,25 @@ router.put('/:id', asyncHandler(async (req, res) => {
   if (timerMode !== undefined)       quiz.timerMode = timerMode
   if (quizTimeLimit !== undefined)   quiz.quizTimeLimit = quizTimeLimit
 
-  await quiz.save()
-  res.json({ quiz })
+  try {
+    await quiz.save()
+    res.json({ quiz })
+  } catch (err) {
+    logger.error({ err, userId: req.user?.id }, 'quiz update failed')
+    throw err
+  }
 }))
 
 // DELETE /api/quiz/:id
 router.delete('/:id', asyncHandler(async (req, res) => {
-  const quiz = await Quiz.findOneAndDelete({ _id: req.params.id, hostId: req.user.id })
-  if (!quiz) return res.status(404).json({ error: 'Quiz not found' })
-  res.json({ message: 'Quiz deleted' })
+  try {
+    const quiz = await Quiz.findOneAndDelete({ _id: req.params.id, hostId: req.user.id })
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found' })
+    res.json({ message: 'Quiz deleted' })
+  } catch (err) {
+    logger.error({ err, userId: req.user?.id }, 'quiz delete failed')
+    throw err
+  }
 }))
 
 // POST /api/quiz/:id/session — create a new live session, get back roomCode
@@ -165,17 +181,22 @@ router.post('/:id/session', asyncHandler(async (req, res) => {
     return res.status(503).json({ error: 'Could not allocate a room code. Please try again.' })
   }
 
-  const session = await Session.create({
-    quizId: quiz._id,
-    hostId: req.user.id,
-    roomCode,
-    status: 'waiting'
-  })
+  try {
+    const session = await Session.create({
+      quizId: quiz._id,
+      hostId: req.user.id,
+      roomCode,
+      status: 'waiting'
+    })
 
-  res.status(201).json({
-    sessionId: session._id,
-    roomCode: session.roomCode
-  })
+    res.status(201).json({
+      sessionId: session._id,
+      roomCode: session.roomCode
+    })
+  } catch (err) {
+    logger.error({ err, userId: req.user?.id }, 'session create failed')
+    throw err
+  }
 }))
 
 module.exports = router
