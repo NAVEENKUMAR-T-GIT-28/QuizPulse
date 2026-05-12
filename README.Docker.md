@@ -1,5 +1,10 @@
 # 🐳 Docker Setup for QuizPulse (Three-Tier Architecture)
 
+## Docker Images
+- **Client**: `docker pull naveen282006/quizpulse-client:latest`
+- **Server**: `docker pull naveen282006/quizpulse-server:latest`
+
+
 This setup deploys the **QuizPulse** application as a complete three-tier system in Docker:
 1.  **MongoDB**: Dedicated database container.
 2.  **Node.js/Express**: Backend API and WebSocket server.
