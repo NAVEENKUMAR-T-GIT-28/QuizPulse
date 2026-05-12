@@ -6,7 +6,7 @@ This setup deploys the **QuizPulse** application as a complete three-tier system
 3.  **React/Vite**: Frontend served via Nginx.
 
 ## Features
--   **Independent Volumes**: Data persists for MongoDB (`mongodb-data`), backend exports (`quizapp-server`), and frontend build assets (`quizapp-client`).
+-   **Independent Volumes**: Data persists for MongoDB (`mongodb-data`), backend exports (`quizpulse-server`), and frontend build assets (`quizpulse-client`).
 -   **Resource Management**: Limits are set for each container to ensure stability.
 -   **Container Naming**: Unique names prevent conflicts.
 -   **Network Isolation**: All containers share the `quizpulse-network` bridge.
@@ -21,6 +21,23 @@ This setup deploys the **QuizPulse** application as a complete three-tier system
     ```
 
 Your application will be available at [http://localhost:5173](http://localhost:5173).
+
+## Configuration
+
+### Optional Puppeteer Support
+By default, Chromium dependencies are **not installed** to minimize image size (reducing it from ~2GB to ~600MB). If you need PDF exports or screenshot features:
+
+1.  In `docker-compose.yml`, change `ENABLE_PUPPETEER` to `"true"`:
+    ```yaml
+    server:
+      build:
+        args:
+          ENABLE_PUPPETEER: "true"
+    ```
+2.  Rebuild the image:
+    ```bash
+    docker compose up --build
+    ```
 
 ### Deploying your application to the cloud
 

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
 
   mongodb:
@@ -25,6 +23,9 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+      args:
+        ENABLE_PUPPETEER: "false"
+    image: quizpulse-server
 
     container_name: quizpulse-server
 
@@ -33,9 +34,12 @@ services:
 
     env_file:
       - ./server/.env
+    environment:
+      - ENABLE_PUPPETEER=false
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
     volumes:
-      - quizapp-server:/app/public/exports
+      - quizpulse-server:/app/public/exports
 
     depends_on:
       - mongodb
@@ -53,6 +57,7 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+    image: quizpulse-client
 
     container_name: quizpulse-client
 
@@ -60,7 +65,7 @@ services:
       - "5173:5173"
 
     volumes:
-      - quizapp-client:/usr/share/nginx/html
+      - quizpulse-client:/usr/share/nginx/html
 
     depends_on:
       - server
@@ -82,8 +87,8 @@ volumes:
   mongodb-data:
     name: MongoDB
 
-  quizapp-server:
-    name: quizapp-server
+  quizpulse-server:
+    name: quizpulse-server
 
-  quizapp-client:
-    name: quizapp-client
+  quizpulse-client:
+    name: quizpulse-client

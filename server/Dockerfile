@@ -1,8 +1,11 @@
 # Use Node 20 slim as base
 FROM node:20-slim
 
-# Install dependencies for Puppeteer (Chromium)
-RUN apt-get update && apt-get install -y \
+# Install Chromium dependencies only if needed
+ARG ENABLE_PUPPETEER=false
+
+RUN if [ "$ENABLE_PUPPETEER" = "true" ]; then \
+    apt-get update && apt-get install -y \
     ca-certificates \
     fonts-liberation \
     libasound2 \
@@ -15,38 +18,36 @@ RUN apt-get update && apt-get install -y \
     libexpat1 \
     libfontconfig1 \
     libgbm1 \
-    libgcc1 \
     libglib2.0-0 \
     libgtk-3-0 \
     libnspr4 \
     libnss3 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libstdc++6 \
     libx11-6 \
     libx11-xcb1 \
     libxcb1 \
     libxcomposite1 \
-    libxcursor1 \
     libxdamage1 \
     libxext6 \
     libxfixes3 \
-    libxi6 \
     libxrandr2 \
     libxrender1 \
     libxss1 \
-    libxtst6 \
-    lsb-release \
     wget \
     xdg-utils \
-    --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+    chromium \
+    --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*; \
+fi
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files and fix ownership
 COPY --chown=node:node package*.json ./
+
+# Skip Puppeteer browser download during npm install
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 # Install production dependencies
 RUN npm install --omit=dev
