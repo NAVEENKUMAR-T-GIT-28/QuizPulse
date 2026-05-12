@@ -28,6 +28,7 @@
   - [Installation](#installation)
   - [Environment Variables](#environment-variables)
   - [Running Locally](#running-locally)
+  - [Running with Docker](#running-with-docker)
 - [How It Works](#how-it-works)
 - [Deployment](#deployment)
 - [Contributing](#contributing)
@@ -257,6 +258,37 @@ The Vite dev server proxies `/api` and `/socket.io` requests to `localhost:5000`
 cd server
 npm test          # Jest with in-memory MongoDB
 ```
+
+---
+
+## Running with Docker
+
+QuizPulse is fully dockerized for a consistent development and deployment environment.
+
+### 1. Configure Environment Variables
+Ensure you have the following `.env` files set up in their respective directories (these are ignored by `.gitignore`):
+
+*   **`server/.env`**: Contains backend variables (`MONGODB_URI`, `JWT_SECRET`, `SMTP_USER`, `SMTP_PASS`).
+    *   *Note: Use `MONGODB_URI=mongodb://mongodb:27017/QuizApp` to connect to the containerized database.*
+*   **`client/.env`**: Contains `VITE_SERVER_URL=http://localhost:5000`.
+
+### 2. Launch the Application
+Run the following command from the project root:
+
+```bash
+docker-compose up --build
+```
+
+### 3. Access the Services
+*   **Frontend**: [http://localhost:5173](http://localhost:5173)
+*   **Backend API**: [http://localhost:5000](http://localhost:5000)
+*   **MongoDB**: Accessible internally at `mongodb:27017` or externally at `localhost:27017`.
+
+### Docker Architecture & Security
+- **Security**: Containers run as non-root users (`node` for backend, `nginx` for frontend) to minimize security risks.
+- **Resource Constraints**: CPU and Memory limits are applied to all services to ensure host stability.
+- **Persistence**: Database records are stored in a persistent Docker volume (`mongodb-data`).
+- **Isolation**: All services communicate over a private bridge network (`quizpulse-network`).
 
 ---
 
