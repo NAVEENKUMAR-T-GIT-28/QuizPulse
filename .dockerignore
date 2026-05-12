@@ -1,0 +1,10 @@
+node_modules
+.git
+client/dist
+client/node_modules
+server/node_modules
+server/scratch
+.env
+.env.test
+*.log
+npm-debug.log*

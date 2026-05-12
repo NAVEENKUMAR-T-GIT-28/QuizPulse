@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+
+  mongodb:
+    image: mongo:7
+    container_name: quizpulse-mongodb
+
+    ports:
+      - "27017:27017"
+
+    volumes:
+      - mongodb-data:/data/db
+
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    networks:
+      - quizpulse-network
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+
+    container_name: quizpulse-server
+
+    ports:
+      - "5000:5000"
+
+    env_file:
+      - ./server/.env
+
+    volumes:
+      - quizapp-server:/app/public/exports
+
+    depends_on:
+      - mongodb
+
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - quizpulse-network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+
+    container_name: quizpulse-client
+
+    ports:
+      - "5173:5173"
+
+    volumes:
+      - quizapp-client:/usr/share/nginx/html
+
+    depends_on:
+      - server
+
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - quizpulse-network
+
+networks:
+  quizpulse-network:
+    driver: bridge
+
+volumes:
+  mongodb-data:
+    name: MongoDB
+
+  quizapp-server:
+    name: quizapp-server
+
+  quizapp-client:
+    name: quizapp-client
