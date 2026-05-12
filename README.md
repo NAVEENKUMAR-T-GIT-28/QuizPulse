@@ -273,9 +273,10 @@ Ensure you have the following `.env` files set up in their respective directorie
 *   **`client/.env`**: Contains `VITE_SERVER_URL=http://localhost:5000`.
 
 ### 2. Launch the Application
-Run the following command from the project root:
+Run these commands from the directory where you cloned the repository:
 
 ```bash
+cd QuizPulse
 docker-compose up --build
 ```
 
