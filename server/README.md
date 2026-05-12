@@ -1,6 +1,8 @@
 # ⚡ QuizPulse — Backend Documentation
 
 > Complete technical reference for the Node.js + Express + Socket.io server application.
+>
+> 🐳 **Docker Documentation**: For container-specific setup and architecture, see [README.Docker.md](./README.Docker.md).
 
 ---
 
@@ -16,6 +18,7 @@
   - [Quiz Model](#quiz-model)
   - [Session Model](#session-model)
   - [Otp Model](#otp-model)
+  - [Password Reset Model](#password-reset-model)
 - [REST API Reference](#rest-api-reference)
   - [Auth Routes — `/api/auth`](#auth-routes--apiauth)
   - [Quiz Routes — `/api/quiz`](#quiz-routes--apiquiz)
@@ -316,6 +319,24 @@ Otp {
 
 ---
 
+### Password Reset Model
+
+**File:** `models/PasswordResetOtp.js`  
+**Collection:** `passwordresetotps`
+
+```
+PasswordResetOtp {
+  email:     String  (required, lowercase)
+  otp:       String  (bcrypt hash of the 6-digit OTP)
+  attempts:  Number  (default: 0, max: 5)
+  createdAt: Date    (TTL index: expires after 600 seconds / 10 minutes)
+}
+```
+
+**Logic:** This model is identical in structure to the registration `Otp` model but is kept in a separate collection to ensure that registration and password reset flows never collide. It uses the same 10-minute TTL cleanup and 5-attempt brute-force protection.
+
+---
+
 ## REST API Reference
 
 All routes under `/api/auth/profile`, `/api/quiz`, `/api/session`, and `/api/export` require a valid JWT cookie unless noted otherwise. The `protect` middleware (see [JWT Auth Middleware](#jwt-auth-middleware)) handles this automatically when applied to a router.
@@ -502,6 +523,58 @@ Permanently deletes the account and all associated data.
 5. Clears the JWT cookie.
 
 **Response `200`:** `{ "message": "Account deleted." }`
+
+---
+
+#### `POST /api/auth/password-reset/initiate`
+
+Initiates the password recovery flow by sending an OTP.
+
+**Auth:** None  
+**Rate limit:** 10 requests / 15 min per IP
+
+**Request body:** `{ "email": "alice@example.com" }`
+
+**Logic:**
+1. Validates email format.
+2. Checks if the user exists. If not, returns `404 Not Found`.
+3. Deletes any existing password reset OTPs for this email.
+4. Generates a 6-digit OTP and hashes it.
+5. Saves a `PasswordResetOtp` record.
+6. Emails the code via `emailService.sendPasswordResetOtp`.
+
+**Response `202`:** `{ "message": "Recovery email sent." }`
+
+---
+
+#### `POST /api/auth/password-reset/verify`
+
+Verifies the recovery OTP.
+
+**Auth:** None
+
+**Request body:** `{ "email": "alice@example.com", "otp": "123456" }`
+
+**Logic:** Verifies the 6-digit OTP against the hashed record in `PasswordResetOtp` collection. Increments attempts on failure.
+
+**Response `200`:** `{ "message": "OTP verified successfully." }`
+
+---
+
+#### `POST /api/auth/password-reset/reset`
+
+Finalizes the password update.
+
+**Auth:** None
+
+**Request body:** `{ "email": "...", "otp": "...", "newPassword": "..." }`
+
+**Logic:**
+1. Re-verifies the OTP one last time.
+2. Hashes the new password and updates the `User` document.
+3. Deletes the `PasswordResetOtp` record.
+
+**Response `200`:** `{ "message": "Password reset successful." }`
 
 ---
 

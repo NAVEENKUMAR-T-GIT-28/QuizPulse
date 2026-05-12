@@ -1,6 +1,8 @@
 # ⚡ QuizPulse — Frontend Documentation
 
 > Complete technical reference for the React 19 client application.
+>
+> 🐳 **Docker Documentation**: For container-specific setup and architecture, see [README.Docker.md](./README.Docker.md).
 
 ---
 
