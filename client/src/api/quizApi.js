@@ -54,6 +54,25 @@ export async function changePassword(currentPassword, newPassword) {
   return data
 }
 
+// ─── Password Reset (unauthenticated) ──────────────────────────────
+/** Step 1: send OTP to email */
+export async function passwordResetInitiate(email) {
+  const { data } = await api.post('/api/auth/password-reset/initiate', { email })
+  return data   // { message }
+}
+
+/** Step 2: verify the OTP — on success backend marks record as verified */
+export async function passwordResetVerify(email, otp) {
+  const { data } = await api.post('/api/auth/password-reset/verify', { email, otp })
+  return data   // { message }
+}
+
+/** Step 3: set the new password */
+export async function passwordResetConfirm(email, newPassword) {
+  const { data } = await api.post('/api/auth/password-reset/reset', { email, newPassword })
+  return data   // { message }
+}
+
 export async function deleteAccount(password) {
   const { data } = await api.delete('/api/auth/account', { data: { password } })
   return data

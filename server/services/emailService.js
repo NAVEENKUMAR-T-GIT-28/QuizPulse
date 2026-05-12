@@ -12,8 +12,8 @@ function createTransport() {
     throw new Error('SMTP_USER and SMTP_PASS must be set in environment variables')
   }
 
-  const host   = SMTP_HOST || 'smtp.gmail.com'
-  const port   = parseInt(SMTP_PORT || '587', 10)
+  const host = SMTP_HOST || 'smtp.gmail.com'
+  const port = parseInt(SMTP_PORT || '587', 10)
   const secure = SMTP_SECURE === 'true' || port === 465
 
   return nodemailer.createTransport({
@@ -40,7 +40,7 @@ function getTransport() {
  * @param {string} otp  – the 6-digit code
  */
 async function sendOtpEmail(to, name, otp) {
-  const from      = process.env.SMTP_FROM || `"QuizPulse" <${process.env.SMTP_USER}>`
+  const from = process.env.SMTP_FROM || `"QuizPulse" <${process.env.SMTP_USER}>`
   const transport = getTransport()
 
   await transport.sendMail({

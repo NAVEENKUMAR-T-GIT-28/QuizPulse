@@ -4,8 +4,9 @@ const express        = require('express')
 const jwt            = require('jsonwebtoken')
 const bcrypt         = require('bcryptjs')
 const crypto         = require('crypto')
-const User           = require('../models/User')
-const Otp            = require('../models/Otp')
+const User               = require('../models/User')
+const Otp                = require('../models/Otp')
+const PasswordResetOtp   = require('../models/PasswordResetOtp')
 const Quiz           = require('../models/Quiz')
 const Session        = require('../models/Session')
 const authMiddleware = require('../middleware/authMiddleware')
@@ -304,6 +305,109 @@ router.delete('/account', authMiddleware, asyncHandler(async (req, res) => {
 
   res.cookie('token', '', { ...COOKIE_OPTIONS, maxAge: 0 })
   res.json({ message: 'Account deleted' })
+}))
+
+// ─── FORGOT PASSWORD — STEP 1: Send OTP ──────────────────────────────────
+//
+// POST /api/auth/password-reset/initiate
+// Body: { email }
+//
+// Looks up the user by email. Returns 404 if not found so the UI can show
+// a clear "account not found" message — acceptable for password reset UX
+// since login already reveals whether an account exists.
+router.post('/password-reset/initiate', asyncHandler(async (req, res) => {
+  const { email } = req.body
+  if (!email) return res.status(400).json({ error: 'Email is required' })
+
+  const user = await User.findOne({ email: email.toLowerCase() })
+
+  if (!user) {
+    return res.status(404).json({ error: 'No account found with that email address.' })
+  }
+
+  const rawOtp = await PasswordResetOtp.createPending(email)
+
+  try {
+    await sendOtpEmail(email, user.name.split(' ')[0], rawOtp)
+  } catch (mailErr) {
+    logger.error({ err: mailErr }, '[PASSWORD-RESET] Failed to send email')
+    await PasswordResetOtp.deleteMany({ email: email.toLowerCase() })
+    return res.status(502).json({ error: 'Could not send reset email. Please try again.' })
+  }
+
+  res.status(202).json({ message: 'Reset code sent. Please check your inbox.' })
+}))
+
+// ─── FORGOT PASSWORD — STEP 2: Verify OTP ────────────────────────────────
+//
+// POST /api/auth/password-reset/verify
+// Body: { email, otp }
+//
+// Validates the OTP (5-attempt guard). On success, marks the record as
+// verified so the /reset step can trust it without re-checking the OTP.
+router.post('/password-reset/verify', asyncHandler(async (req, res) => {
+  const { email, otp } = req.body
+  if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' })
+
+  const pending = await PasswordResetOtp.findOne({ email: email.toLowerCase() })
+  if (!pending) {
+    return res.status(400).json({ error: 'No pending reset found. Please request a new code.' })
+  }
+
+  if (pending.attempts >= 5) {
+    await pending.deleteOne()
+    return res.status(429).json({ error: 'Too many incorrect attempts. Please request a new code.' })
+  }
+
+  const isMatch = await pending.compareOtp(String(otp).trim())
+  if (!isMatch) {
+    pending.attempts += 1
+    await pending.save()
+    const remaining = 5 - pending.attempts
+    return res.status(400).json({
+      error: remaining > 0
+        ? `Incorrect code. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+        : 'Too many incorrect attempts. Please request a new code.',
+    })
+  }
+
+  // Mark verified — grants permission to call /reset
+  pending.verified = true
+  await pending.save()
+
+  res.json({ message: 'OTP verified. You may now set a new password.' })
+}))
+
+// ─── FORGOT PASSWORD — STEP 3: Set new password ──────────────────────────
+//
+// POST /api/auth/password-reset/reset
+// Body: { email, newPassword }
+//
+// Only succeeds when a verified PasswordResetOtp exists for the email
+// (created by /verify above). Deletes the OTP record on success.
+router.post('/password-reset/reset', asyncHandler(async (req, res) => {
+  const { email, newPassword } = req.body
+  if (!email || !newPassword) {
+    return res.status(400).json({ error: 'Email and new password are required' })
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' })
+  }
+
+  const pending = await PasswordResetOtp.findOne({ email: email.toLowerCase(), verified: true })
+  if (!pending) {
+    return res.status(400).json({ error: 'OTP not verified. Please complete verification first.' })
+  }
+
+  const user = await User.findOne({ email: email.toLowerCase() })
+  if (!user) return res.status(404).json({ error: 'User not found' })
+
+  user.password = newPassword   // pre-save hook will hash it
+  await user.save()
+
+  await pending.deleteOne()
+
+  res.json({ message: 'Password updated successfully. You can now sign in.' })
 }))
 
 module.exports = router

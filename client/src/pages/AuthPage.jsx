@@ -4,7 +4,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { login, registerInitiate, registerVerify, registerResend } from '../api/quizApi'
+import { login, registerInitiate, registerVerify, registerResend,
+         passwordResetInitiate, passwordResetVerify, passwordResetConfirm } from '../api/quizApi'
 import ThemeToggle from '../components/ThemeToggle'
 import { saveAuth } from '../hooks/useAuth'
 
@@ -99,11 +100,13 @@ function useCountdown(seconds) {
 export default function AuthPage() {
   const navigate = useNavigate()
 
-  // 'login' | 'register' | 'otp'
+  // 'login' | 'register' | 'otp' | 'forgot' | 'forgot-otp' | 'forgot-reset'
   const [mode, setMode]       = useState('login')
   const [name, setName]       = useState('')
   const [email, setEmail]     = useState('')
   const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
   const [otp, setOtp]         = useState('')
   const [error, setError]     = useState(null)
   const [info, setInfo]       = useState(null)
@@ -183,10 +186,92 @@ export default function AuthPage() {
     }
   }
 
+  // ── Forgot password handlers ───────────────────────────────────────
+
+  async function handleForgotSubmit(e) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      await passwordResetInitiate(email)
+      setOtp('')
+      setCooldownKey(k => k + 1)
+      setMode('forgot-otp')
+      setInfo('A reset code has been sent to your email if an account exists.')
+    } catch (err) {
+      setError(err.response?.data?.error || 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleForgotOtpSubmit(e) {
+    e.preventDefault()
+    if (otp.replace(/\s/g, '').length < 6) {
+      setError('Please enter all 6 digits')
+      return
+    }
+    setError(null)
+    setLoading(true)
+    try {
+      await passwordResetVerify(email, otp.replace(/\s/g, ''))
+      setNewPassword('')
+      setMode('forgot-reset')
+      setInfo(null)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleForgotResend() {
+    if (cooldown > 0) return
+    setError(null)
+    setInfo(null)
+    setLoading(true)
+    try {
+      await passwordResetInitiate(email)
+      setOtp('')
+      setCooldownKey(k => k + 1)
+      setInfo('A new reset code has been sent to your inbox.')
+    } catch (err) {
+      setError(err.response?.data?.error || 'Could not resend. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleResetPasswordSubmit(e) {
+    e.preventDefault()
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+    setError(null)
+    setLoading(true)
+    try {
+      await passwordResetConfirm(email, newPassword)
+      // Return to login with a success message
+      setPassword('')
+      setNewPassword('')
+      setMode('login')
+      setInfo('Password reset! You can now sign in with your new password.')
+    } catch (err) {
+      setError(err.response?.data?.error || 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   function switchMode(next) {
     setMode(next)
     setError(null)
     setInfo(null)
+    if (next === 'login' || next === 'register') {
+      setOtp('')
+      setNewPassword('')
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -206,21 +291,27 @@ export default function AuthPage() {
             QuizPulse
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-.4px', marginBottom: 4 }}>
-            {mode === 'login'    ? 'Welcome back'        :
-             mode === 'register' ? 'Create your account' :
-                                   'Verify your email'}
+            {mode === 'login'         ? 'Welcome back'        :
+             mode === 'register'      ? 'Create your account' :
+             mode === 'otp'           ? 'Verify your email'   :
+             mode === 'forgot'        ? 'Reset password'      :
+             mode === 'forgot-otp'   ? 'Enter reset code'    :
+                                        'Set new password'}
           </div>
           <div style={{ fontSize: 14, color: 'var(--text2)' }}>
-            {mode === 'login'    ? 'Sign in to your host console'    :
-             mode === 'register' ? 'Get started hosting quizzes'     :
-                                   `We sent a 6-digit code to ${email}`}
+            {mode === 'login'         ? 'Sign in to your host console'           :
+             mode === 'register'      ? 'Get started hosting quizzes'            :
+             mode === 'otp'           ? `We sent a 6-digit code to ${email}`     :
+             mode === 'forgot'        ? 'Enter your email to receive a reset code' :
+             mode === 'forgot-otp'   ? `We sent a reset code to ${email}`       :
+                                        'Choose a new password for your account'}
           </div>
         </div>
 
         {/* Card */}
         <div className="glass" style={{ borderRadius: 'var(--r3)', padding: 32 }}>
 
-          {/* ── OTP step ── */}
+          {/* ── OTP step (registration) ── */}
           {mode === 'otp' ? (
             <>
               {error && <div className="error-msg">{error}</div>}
@@ -276,6 +367,143 @@ export default function AuthPage() {
                 </span>
               </div>
             </>
+          ) : mode === 'forgot' ? (
+            /* ── Step 1: enter email ── */
+            <>
+              {error && <div className="error-msg">{error}</div>}
+              <form onSubmit={handleForgotSubmit}>
+                <div style={{ marginBottom: 20 }}>
+                  <label className="section-label">Email address</label>
+                  <input
+                    className="input"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+                <button
+                  className="btn btn-primary btn-lg"
+                  style={{ width: '100%' }}
+                  type="submit"
+                  disabled={loading}
+                >
+                  {loading
+                    ? <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                    : <><span>Send reset code</span><span className="mat">mail</span></>
+                  }
+                </button>
+              </form>
+              <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'var(--text3)' }}>
+                <span
+                  onClick={() => switchMode('login')}
+                  style={{ color: 'var(--indigo-l)', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  ← Back to sign in
+                </span>
+              </div>
+            </>
+
+          ) : mode === 'forgot-otp' ? (
+            /* ── Step 2: verify OTP ── */
+            <>
+              {error && <div className="error-msg">{error}</div>}
+              {info && (
+                <div style={{
+                  background: 'rgba(99,102,241,.1)', border: '1px solid rgba(99,102,241,.25)',
+                  borderRadius: 8, padding: '10px 14px', fontSize: 13,
+                  color: 'var(--indigo-l)', marginBottom: 14,
+                }}>
+                  {info}
+                </div>
+              )}
+              <form onSubmit={handleForgotOtpSubmit}>
+                <label className="section-label" style={{ display: 'block', textAlign: 'center', marginBottom: 4 }}>
+                  Reset code
+                </label>
+                <OtpInput value={otp} onChange={setOtp} disabled={loading} />
+                <button
+                  className="btn btn-primary btn-lg"
+                  style={{ width: '100%' }}
+                  type="submit"
+                  disabled={loading || otp.replace(/\s/g, '').length < 6}
+                >
+                  {loading
+                    ? <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                    : <><span>Verify code</span><span className="mat">check_circle</span></>
+                  }
+                </button>
+              </form>
+              <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: 'var(--text3)' }}>
+                Didn&apos;t receive it?{' '}
+                <span
+                  onClick={handleForgotResend}
+                  style={{
+                    color: cooldown > 0 ? 'var(--text3)' : 'var(--indigo-l)',
+                    cursor: cooldown > 0 ? 'default' : 'pointer',
+                    fontWeight: 700,
+                  }}
+                >
+                  {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+                </span>
+              </div>
+              <div style={{ textAlign: 'center', marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
+                <span
+                  onClick={() => switchMode('forgot')}
+                  style={{ color: 'var(--indigo-l)', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  ← Back
+                </span>
+              </div>
+            </>
+
+          ) : mode === 'forgot-reset' ? (
+            /* ── Step 3: set new password ── */
+            <>
+              {error && <div className="error-msg">{error}</div>}
+              <form onSubmit={handleResetPasswordSubmit}>
+                <div style={{ marginBottom: 20 }}>
+                  <label className="section-label">New password</label>
+                  <div className="input-with-icon">
+                    <input
+                      className="input"
+                      type={showNewPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="input-icon-btn"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      tabIndex="-1"
+                    >
+                      <span className="mat">{showNewPassword ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
+                    At least 6 characters
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary btn-lg"
+                  style={{ width: '100%' }}
+                  type="submit"
+                  disabled={loading || newPassword.length < 6}
+                >
+                  {loading
+                    ? <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                    : <><span>Reset password</span><span className="mat">lock_reset</span></>
+                  }
+                </button>
+              </form>
+            </>
+
           ) : (
             <>
               {/* ── Login / Register tabs ── */}
@@ -297,6 +525,15 @@ export default function AuthPage() {
               </div>
 
               {error && <div className="error-msg">{error}</div>}
+              {info && mode === 'login' && (
+                <div style={{
+                  background: 'rgba(34,197,94,.1)', border: '1px solid rgba(34,197,94,.3)',
+                  borderRadius: 8, padding: '10px 14px', fontSize: 13,
+                  color: '#16a34a', marginBottom: 14,
+                }}>
+                  {info}
+                </div>
+              )}
 
               {mode === 'login' ? (
                 <form onSubmit={handleLoginSubmit}>
@@ -346,6 +583,14 @@ export default function AuthPage() {
                       : <><span>Sign in</span><span className="mat">arrow_forward</span></>
                     }
                   </button>
+                  <div style={{ textAlign: 'right', marginTop: 10 }}>
+                    <span
+                      onClick={() => { setError(null); setInfo(null); setMode('forgot') }}
+                      style={{ fontSize: 12, color: 'var(--indigo-l)', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Forgot password?
+                    </span>
+                  </div>
                 </form>
               ) : (
                 <form onSubmit={handleRegisterSubmit}>
