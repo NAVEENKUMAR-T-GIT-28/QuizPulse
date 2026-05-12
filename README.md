@@ -200,7 +200,7 @@ QuizPulse/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/QuizPulse.git
+git clone https://github.com/NAVEENKUMAR-T-GIT-28/QuizPulse.git
 cd QuizPulse
 
 # 2. Install server dependencies
